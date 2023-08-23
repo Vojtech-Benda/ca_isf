@@ -2,6 +2,7 @@ import itk
 from itk.support.types import ImageBase
 import pathlib
 from typing import Union
+from typing import Literal
 
 
 def read_ct(dir_path: str) -> Union[ImageBase, None]:
@@ -34,7 +35,7 @@ def read_xray(dir_path) -> Union[ImageBase, None]:
         return None
 
 
-def read_metadata(image_modality: str) -> Union[dict, None]:
+def read_metadata(image_modality: Literal["ct", "xray"]) -> Union[dict, None]:
     match image_modality:
         case "ct":
             metadata = dicom_io_ct.GetMetaDataDictionary()
@@ -42,10 +43,9 @@ def read_metadata(image_modality: str) -> Union[dict, None]:
             metadata = dicom_io_xray.GetMetaDataDictionary()
         case _:
             return None
-    tags = ["0018|1110", "0028|0010", "0028|0011", "0028|0030", "0018|0050"]
-    labels = ["src_det_distance", "rows", "columns", "pixel_spacing", "slice_thickness"]
-    output_metadata = {label: (metadata[tag]
-                               if metadata.HasKey(tag) else None) for label, tag in zip(labels, tags)}
+    tags = ["0010|0010", "0028|0010", "0028|0011", "0028|0030", "0018|0050", "0018|1110"]
+    labels = ["patient_name", "rows", "columns", "pixel_spacing", "slice_thickness", "src_det_distance"]
+    output_metadata = {label: (metadata[tag] if metadata.HasKey(tag) else None) for label, tag in zip(labels, tags)}
     output_metadata["slices"] = len(names_generator.GetInputFileNames())
     return output_metadata
 
