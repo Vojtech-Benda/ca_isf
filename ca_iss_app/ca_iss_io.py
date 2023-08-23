@@ -17,7 +17,7 @@ def read_ct(dir_path: str) -> Union[ImageBase, None]:
     except RuntimeError as error:
         print(f"Failed to load CT files at {dir_path}\n"
               f"{error}")
-        return None, None
+        return None
 
 
 def read_xray(dir_path) -> Union[ImageBase, None]:
@@ -30,7 +30,7 @@ def read_xray(dir_path) -> Union[ImageBase, None]:
         return reader_xray.GetOutput()
 
     except RuntimeError as error:
-        print(f"Failed to read RTG file at {dir_path}\n"
+        print(f"Failed to read XRAY file at {dir_path}\n"
               f"{error}")
         return None
 
