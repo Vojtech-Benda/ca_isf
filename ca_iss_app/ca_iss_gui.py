@@ -75,8 +75,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít CT", dir=os.path.dirname(io.__file__))
 
         if dir_name:
-            ct_data.ct_volume = io.read_ct(dir_path=dir_name)
-            ct_data.ct_meta = io.read_metadata(image=ct_data.ct_volume, image_modality="ct")
+            ct_data.ct_volume = io.read_dicom_files(dir_path=dir_name)
+            ct_data.ct_meta = io.read_metadata(image=ct_data.ct_volume)
             self.labm_drr_name.setText(ct_data.ct_meta["patient_name"])
             self.drr_gen_window.set_ct_metadata()
 
@@ -85,8 +85,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít RTG", dir=os.path.dirname(io.__file__))
 
         if dir_name:
-            xray_data.xray_image = io.read_xray(dir_path=dir_name)
-            xray_data.xray_meta = io.read_metadata(image=xray_data.xray_image, image_modality="xray")
+            xray_data.xray_image = io.read_dicom_files(dir_path=dir_name)
+            xray_data.xray_meta = io.read_metadata(image=xray_data.xray_image)
             self.labm_xray_name.setText(xray_data.xray_meta["patient_name"])
             self.drr_gen_window.set_xray_metadata()
             self.display_image(xray_data.xray_image, graphics_scene=self.gsc_xray, graphics_view=self.gvi_xray)
@@ -97,11 +97,12 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def write_xray_triggered(self) -> None:
-        file_name, suffix = qtw.QFileDialog.getSaveFileName(self, caption="Uložit CT", dir=os.path.dirname(io.__file__),
-                                                            filter="DICOM (*.dcm);;")
-
-        if file_name:
-            io.write_ct(file_name, ct_data.ct_volume)
+        pass
+        # file_name, suffix = qtw.QFileDialog.getSaveFileName(self, caption="Uložit CT", dir=os.path.dirname(io.__file__),
+        #                                                     filter="DICOM (*.dcm);;")
+        #
+        # if file_name:
+        #     io.write_ct(file_name, ct_data.ct_volume)
 
     @qtc.Slot()
     def write_drr_triggered(self) -> None:
