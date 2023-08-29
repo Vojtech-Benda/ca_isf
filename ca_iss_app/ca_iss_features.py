@@ -59,8 +59,7 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
     return sitk_drr_image
 
 
-def cast_image(image: sitk.Image,
-               image_type: str) -> sitk.Image:
+def cast_image(image: sitk.Image, image_type: str) -> sitk.Image:
     match image_type:
         case "uint8":
             cast_filter.SetOutputPixelType(sitk.sitkUInt8)
@@ -72,8 +71,7 @@ def cast_image(image: sitk.Image,
             rescale_filter.SetOutputMaximum(65535)
         case _:
             print("Unsupported image type")
-    rescaled_image = rescale_filter.Execute(image)
-    return cast_filter.Execute(rescaled_image)
+    return cast_filter.Execute(rescale_filter.Execute(image))
 
 
 def convert_image_sitk_to_itk(sitk_image: sitk.Image) -> itk.Image:

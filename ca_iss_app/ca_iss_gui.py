@@ -24,7 +24,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.mac_exit.triggered.connect(sys.exit)
 
         self.set_read_menu_button()
-
         self.set_write_menu_button()
 
         self.gsc_xray = qtw.QGraphicsScene()
