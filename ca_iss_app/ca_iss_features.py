@@ -7,7 +7,7 @@ import numpy as np
 def generate_drr(ct_volume: sitk.Image, xray_information: dict,
                  drr_size: tuple[float, float], rz_angle_deg: float = 0.0,
                  threshold: float = 200) -> sitk.Image:
-    itk_volume = convert_image_sitk_to_itk(ct_volume, itk.SS)
+    itk_volume = convert_image_sitk_to_itk(ct_volume)
     image_filter.SetInput(itk_volume)
     transform.SetRotation(math.radians(-90.0), 0.0, math.radians(rz_angle_deg))
 
@@ -55,8 +55,7 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
                   ct_origin[1],
                   ct_origin[2] + (ct_size[1] * ct_spacing[1]))
     image_filter.SetOutputOrigin(drr_origin)
-    itk_drr_image = image_filter.GetOutput()
-    sitk_drr_image = convert_image_itk_to_sitk(itk_drr_image, itk_drr_image.GetDirection())
+    sitk_drr_image = convert_image_itk_to_sitk(image_filter.GetOutput())
     return sitk_drr_image
 
 
@@ -77,53 +76,28 @@ def cast_image(image: sitk.Image,
     return cast_filter.Execute(rescaled_image)
 
 
-def convert_image_sitk_to_itk(sitk_image: sitk.Image, pixel_id_value) -> itk.Image:
-    array = sitk.GetArrayFromImage(sitk_image)
-    itk_image: itk.Image = itk.GetImageFromArray(array)
-    itk_image = copy_image_metadata_sitk_to_itk(itk_image, sitk_image, pixel_id_value)
-    return itk_image
+def convert_image_sitk_to_itk(sitk_image: sitk.Image) -> itk.Image:
+    image_dimension = 3
+    itk_image = itk.GetImageFromArray(sitk.GetArrayFromImage(sitk_image),
+                                      is_vector=sitk_image.GetNumberOfComponentsPerPixel() > 1)
+    itk_image.SetOrigin(sitk_image.GetOrigin())
+    itk_image.SetSpacing(sitk_image.GetSpacing())
+    itk_image.SetDirection(itk.GetMatrixFromArray(np.reshape(np.array(sitk_image.GetDirection()),
+                                                             [image_dimension] * 2)))
+
+    itk_cast_filter = itk.CastImageFilter[type(itk_image), itk.Image[itk.SS, 3]].New()
+    itk_cast_filter.SetInput(itk_image)
+    itk_cast_filter.Update()
+    return itk_cast_filter.GetOutput()
 
 
-def convert_image_itk_to_sitk(itk_image: itk.Image, direction) -> sitk.Image:
-    array = itk.GetArrayFromImage(itk_image)
-    sitk_image = sitk.GetImageFromArray(array)
-    sitk_image = copy_image_metadata_itk_to_sitk(sitk_image, itk_image, direction)
+def convert_image_itk_to_sitk(itk_image: itk.Image) -> sitk.Image:
+    sitk_image = sitk.GetImageFromArray(itk.GetArrayFromImage(itk_image),
+                                        isVector=itk_image.GetNumberOfComponentsPerPixel() > 1)
+    sitk_image.SetOrigin(tuple(itk_image.GetOrigin()))
+    sitk_image.SetSpacing(tuple(itk_image.GetSpacing()))
+    sitk_image.SetDirection(itk.GetArrayFromMatrix(itk_image.GetDirection()).flatten())
     return sitk_image
-
-
-def copy_image_metadata_sitk_to_itk(output_itk_image: itk.Image,
-                                    reference_sitk_image: sitk.Image,
-                                    output_pixel_type) -> itk.Image:
-    output_itk_image.SetOrigin(reference_sitk_image.GetOrigin())
-    output_itk_image.SetSpacing(reference_sitk_image.GetSpacing())
-
-    sitk_image_direction = np.eye(3)
-    np_dir_vnl = itk.GetVnlMatrixFromArray(sitk_image_direction)
-    itk_image_direction = output_itk_image.GetDirection()
-    itk_image_direction.GetVnlMatrix().copy_in(np_dir_vnl.data_block())
-
-    dimension = output_itk_image.GetImageDimension()
-    input_img_type = type(output_itk_image)
-    output_img_type = itk.Image[output_pixel_type, dimension]
-
-    cast_image_filter = itk.CastImageFilter[input_img_type, output_img_type].New()
-    cast_image_filter.SetInput(output_itk_image)
-    cast_image_filter.Update()
-    return cast_image_filter.GetOutput()
-
-
-def copy_image_metadata_itk_to_sitk(output_sitk_image: sitk.Image,
-                                    reference_itk_image: itk.Image,
-                                    direction) -> itk.Image:
-    reference_image_origin = list(reference_itk_image.GetOrigin())
-    output_sitk_image.SetOrigin(reference_image_origin)
-
-    reference_image_spacing = list(reference_itk_image.GetSpacing())
-    output_sitk_image.SetSpacing(reference_image_spacing)
-
-    direction_matrix = np.asarray(direction).flatten()
-    output_sitk_image.SetDirection(direction_matrix)
-    return output_sitk_image
 
 
 input_image_type = itk.Image[itk.SS, 3]
@@ -140,6 +114,7 @@ interpolator = itk.itkRayCastInterpolateImageFunctionPython.itkRayCastInterpolat
 rescale_filter = sitk.RescaleIntensityImageFilter()
 
 cast_filter = sitk.CastImageFilter()
+
 
 if __name__ == "__main__":
     print(f"Executed {__file__}")
