@@ -1,5 +1,5 @@
 import sys
-from PySide6 import QtWidgets as qtw
+from PySide6.QtWidgets import QApplication
 
 from ca_iss_app.ca_iss_gui import MainWindow, DrrGenWindow
 
@@ -12,7 +12,7 @@ def run_main():
     # drr_image_casted = features.cast_image(drr_image)
     # io.write_drr(drr_image_casted, dir_path="/\\")
 
-    app = qtw.QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
     drr_gen_window = DrrGenWindow()
     main_window = MainWindow(drr_gen_window)
