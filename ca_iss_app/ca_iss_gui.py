@@ -10,7 +10,8 @@ from ca_iss_app.ui.drr_gen_window import Ui_win_drr_gen
 
 import ca_iss_app.ca_iss_io as io
 import ca_iss_app.ca_iss_features as features
-import ca_iss_app.ca_iss_classes as classes
+import ca_iss_app.ca_iss_data_storage as data_storage
+import ca_iss_app.ui.custom_widgets as widgets
 
 
 class MainWindow(qtw.QMainWindow, Ui_win_main_window):
@@ -22,52 +23,24 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
         self.mac_info.triggered.connect(self.info_triggered)
         self.mac_exit.triggered.connect(sys.exit)
+        self.mac_read_ct.triggered.connect(self.read_ct_triggered)
+        self.mac_read_xray.triggered.connect(self.read_xray_triggered)
+        self.mac_read_drr.triggered.connect(self.read_drr_triggered)
+        self.mac_write_xray.triggered.connect(self.write_xray_triggered)
+        self.mac_write_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_gen_drr.triggered.connect(self.open_drr_gen_window)
 
-        self.set_read_menu_button()
-        self.set_write_menu_button()
-
-        self.gsc_xray = qtw.QGraphicsScene()
+        self.gsc_xray = widgets.GraphicsScene()
         self.gvi_xray.setScene(self.gsc_xray)
+        self.gvi_xray.set_pos_label(self.labm_xray_x_pos, self.labm_xray_y_pos)
 
-        self.gsc_drr = qtw.QGraphicsScene()
+        self.gsc_drr = widgets.GraphicsScene()
         self.gvi_drr.setScene(self.gsc_drr)
+        self.gvi_drr.set_pos_label(self.labm_drr_x_pos, self.labm_drr_y_pos)
 
-        self.pbu_open_gen_window.clicked.connect(self.open_drr_gen_window)
         self.drr_gen_window.pbu_gen_button.clicked.connect(self.generate_drr_clicked)
 
-    def set_write_menu_button(self):
-        self.mac_write_drr = qtg.QAction()
-        self.mac_write_drr.triggered.connect(self.write_drr_triggered)
-        self.mac_write_drr.setText("DRR obraz")
-
-        self.mac_write_xray = qtg.QAction()
-        self.mac_write_xray.triggered.connect(self.write_xray_triggered)
-        self.mac_write_xray.setText("RTG obraz")
-
-        self.men_write_menu = qtw.QMenu()
-        self.men_write_menu.addActions([self.mac_write_xray, self.mac_write_drr])
-        self.tbu_write_button.setMenu(self.men_write_menu)
-
-        self.tbu_write_button.setIcon(self.style().standardIcon(qtw.QStyle.StandardPixmap.SP_DialogSaveButton))
-
-    def set_read_menu_button(self):
-        self.mac_read_ct = qtg.QAction()
-        self.mac_read_ct.triggered.connect(self.read_ct_triggered)
-        self.mac_read_ct.setText("CT řezy")
-
-        self.mac_read_drr = qtg.QAction()
-        self.mac_read_drr.triggered.connect(self.read_drr_triggered)
-        self.mac_read_drr.setText("DRR obraz")
-
-        self.mac_read_xray = qtg.QAction()
-        self.mac_read_xray.triggered.connect(self.read_xray_triggered)
-        self.mac_read_xray.setText("RTG obraz")
-
-        self.men_read_menu = qtw.QMenu()
-        self.men_read_menu.addActions([self.mac_read_ct, self.mac_read_xray, self.mac_read_drr])
-        self.tbu_read_button.setMenu(self.men_read_menu)
-
-        self.tbu_read_button.setIcon(self.style().standardIcon(qtw.QStyle.StandardPixmap.SP_DialogOpenButton))
+        self.pbu_paint.clicked.connect(self.start_painting)
 
     @qtc.Slot()
     def read_ct_triggered(self) -> None:
@@ -96,7 +69,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def write_xray_triggered(self) -> None:
-        pass
+        print("write xray")
         # file_name, suffix = qtw.QFileDialog.getSaveFileName(self, caption="Uložit CT", dir=os.path.dirname(io.__file__),
         #                                                     filter="DICOM (*.dcm);;")
         #
@@ -105,12 +78,13 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def write_drr_triggered(self) -> None:
-        pass
+        print("write drr")
 
     @qtc.Slot()
     def open_drr_gen_window(self) -> None:
         if self.drr_gen_window.isVisible():
-            self.drr_gen_window.hide()
+            if not self.drr_gen_window.isActiveWindow():
+                self.drr_gen_window.activateWindow()
         else:
             self.drr_gen_window.show()
 
@@ -127,31 +101,41 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.display_image(drr_data.drr_image, graphics_scene=self.gsc_drr, graphics_view=self.gvi_drr)
 
     @staticmethod
-    def display_image(input_image, graphics_scene: qtw.QGraphicsScene, graphics_view: qtw.QGraphicsView):
+    def display_image(input_image, graphics_scene: qtw.QGraphicsScene, graphics_view):
         image_rescaled = features.cast_image(input_image, image_type="uint8")
         image_array = sitk.GetArrayFromImage(image_rescaled)[0, ...]
         data = image_array.data
-        ny, nx = image_array.shape
+        height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
-        qt_pixmap = qtg.QPixmap(qtg.QImage(data, nx, ny, strides, qtg.QImage.Format_Grayscale8))
-        graphics_scene.addPixmap(qt_pixmap)
-        graphics_view.fitInView(0, 0, nx, ny, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides, qtg.QImage.Format_Grayscale8))
+        graphics_view.setSceneRect(0, 0, width, height)
+        image_pixmap.rect()
+        graphics_scene.addPixmap(image_pixmap)
+        graphics_view.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        graphics_view.set_image_metadata(xray_data.xray_meta)
         graphics_scene.update()
 
-    # def wheelEvent(self, event: qtg.QWheelEvent) -> None:
-    #     angle_delta = event.angleDelta().y()
-    #     zoom_factor = 1 + (angle_delta / 1000)
-    #     self.gve_xray.scale(zoom_factor, zoom_factor)
+    @qtc.Slot()
+    def start_painting(self):
+        if self.gvi_xray.pixel_spacing is not None:
+            self.gvi_xray.set_painting_flag(True)
 
     @qtc.Slot()
     def info_triggered(self) -> None:
-        print(xray_data.xray_image)
-        print(xray_data.xray_meta)
+        print(point_list.points)
 
-        print(ct_data.ct_volume)
-        print(ct_data.ct_meta)
+    def resizeEvent(self, event: qtg.QResizeEvent) -> None:
+        super().resizeEvent(event)
+
+        xray_width, xray_height = xray_data.xray_image.GetSize()[:2]
+        self.gvi_xray.fitInView(0, 0, xray_width, xray_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+
+        drr_width, drr_height = drr_data.drr_image.GetSize()[:2]
+        self.gvi_drr.fitInView(0, 0, drr_width, drr_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
 
     def closeEvent(self, event: qtg.QCloseEvent) -> None:
+        super().closeEvent(event)
+
         sys.exit()
 
 
@@ -202,6 +186,7 @@ class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):
                                             f"{drr_meta['pixel_spacing'][1]:.2f}")
 
 
-ct_data = classes.CtData()
-xray_data = classes.XrayData()
-drr_data = classes.DrrData()
+ct_data = data_storage.CtData()
+xray_data = data_storage.XrayData()
+drr_data = data_storage.DrrData()
+point_list = data_storage.PointList()
