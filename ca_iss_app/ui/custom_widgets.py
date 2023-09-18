@@ -44,6 +44,8 @@ class GraphicsView(qtw.QGraphicsView):
                 mouse_pos = self.mapToScene(event.position().toPoint())
                 self.end_point = mouse_pos
                 self.scene().addItem(self.length_text.update_text(self._line))
+                self.length_text.update_pos(self._line)
+
                 self.update_line()
 
     def mousePressEvent(self, event: qtg.QMouseEvent) -> None:
@@ -135,11 +137,34 @@ class LengthText(qtw.QGraphicsTextItem):
         self.setFlags(self.GraphicsItemFlag.ItemIgnoresTransformations)
 
     def update_text(self, line: qtc.QLineF):
+        # FIXME: length text position
         length_x = (int(line.p2().x() - line.p1().x())) * self.px_spacing[0]
         length_y = (int(line.p2().y() - line.p1().y())) * self.px_spacing[1]
         length = sqrt((length_x ** 2) + (length_y ** 2))
         self.setPlainText(f"{length:.2f} mm")
+
+        self.setTransformOriginPoint(self.boundingRect().center())
         return self
+
+    def update_pos(self, line: qtc.QLineF):
+        line_angle = line.angle()
+
+        if 0.0 <= line_angle <= 90.0:
+            self.setPos(line.center())
+
+        elif 90.0 < line_angle <= 180.0:
+            self.setPos(line.center().x(),  #FIXME: ????? wrong height from line center
+                        line.center().y() - self.boundingRect().height() - 10)
+
+        elif 180.0 < line_angle <= 270.0:
+            self.setPos(line.center().x() - self.boundingRect().width(),
+                        line.center().y() - self.boundingRect().height())
+
+        elif 270.0 < line_angle <= 360.0:
+            self.setPos(line.center().x(),
+                        line.center().y() - self.boundingRect().height())
+        print(self.boundingRect().height(), self.boundingRect().width())
+        print(line.center(), self.pos())
 
 
 class Pens:
