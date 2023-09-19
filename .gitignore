@@ -1,0 +1,6 @@
+output/
+sample_files/
+temp/
+build_settings.png
+venv/
+.idea/
