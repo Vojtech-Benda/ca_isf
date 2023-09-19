@@ -149,22 +149,21 @@ class LengthText(qtw.QGraphicsTextItem):
     def update_pos(self, line: qtc.QLineF):
         line_angle = line.angle()
 
-        if 0.0 <= line_angle <= 90.0:
+        # position the text
+        if 0.0 <= line_angle <= 90.0:  # upper left corner
             self.setPos(line.center())
 
-        elif 90.0 < line_angle <= 180.0:
-            self.setPos(line.center().x(),  #FIXME: ????? wrong height from line center
-                        line.center().y() - self.boundingRect().height() - 10)
-
-        elif 180.0 < line_angle <= 270.0:
-            self.setPos(line.center().x() - self.boundingRect().width(),
-                        line.center().y() - self.boundingRect().height())
-
-        elif 270.0 < line_angle <= 360.0:
+        elif 90.0 < line_angle <= 180.0:  # lower left corner
             self.setPos(line.center().x(),
-                        line.center().y() - self.boundingRect().height())
-        print(self.boundingRect().height(), self.boundingRect().width())
-        print(line.center(), self.pos())
+                        line.center().y() - self.boundingRect().height() - 100)
+
+        elif 180.0 < line_angle <= 270.0:  # lower right corner
+            self.setPos(line.center().x() - self.boundingRect().width() - 300,
+                        line.center().y() - self.boundingRect().height() - 100)
+
+        elif 270.0 < line_angle <= 360.0:  # lower left corner
+            self.setPos(line.center().x(),
+                        line.center().y() - self.boundingRect().height() - 100)
 
 
 class Pens:
