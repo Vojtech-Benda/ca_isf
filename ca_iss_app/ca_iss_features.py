@@ -9,6 +9,8 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
                  threshold: float = 200) -> sitk.Image:
     itk_volume = convert_image_sitk_to_itk(ct_volume)
     image_filter.SetInput(itk_volume)
+
+    # rotate source-detector by -90° to get anterior-posterior view
     transform.SetRotation(math.radians(-90.0), 0.0, math.radians(rz_angle_deg))
 
     ct_origin = ct_volume.GetOrigin()
@@ -36,8 +38,8 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
     xray_size_mm = (xray_width * xray_spacing_x,
                     xray_height * xray_spacing_y)
 
-    alpha = math.atan((xray_size_mm[0] / 2.0) / xray_sdd)
-    drr_sdd = ((ct_size[2] * ct_spacing[2]) / 2.0) / math.tan(alpha)
+    alpha = math.atan((xray_size_mm[0] / 2.0) / xray_sdd)  # field-of-view of xray image
+    drr_sdd = ((ct_size[2] * ct_spacing[2]) / 2.0) / math.tan(alpha)  # source-detector distance for drr image
 
     focal_point = (ct_center[0],
                    ct_center[1],
