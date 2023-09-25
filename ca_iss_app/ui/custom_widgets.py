@@ -39,14 +39,14 @@ class GraphicsView(qtw.QGraphicsView):
         self.labm_x_pos.setText(f"{int(cursor_pos.x())}")
         self.labm_y_pos.setText(f"{int(cursor_pos.y())}")
 
-        if self.painting_flag:
-            if event.buttons() == qtc.Qt.MouseButton.LeftButton:
-                mouse_pos = self.mapToScene(event.position().toPoint())
-                self.end_point = mouse_pos
-                self.scene().addItem(self.length_text.update_text(self._line))
-                self.length_text.update_pos(self._line)
+        if self.painting_flag and self.start_point:
+            # if event.buttons() == qtc.Qt.MouseButton.LeftButton:
+            mouse_pos = self.mapToScene(event.position().toPoint())
+            self.end_point = mouse_pos
+            self.scene().addItem(self.length_text.update_text(self._line))
+            self.length_text.update_pos(self._line)
 
-                self.update_line()
+            self.update_line()
 
     def mousePressEvent(self, event: qtg.QMouseEvent) -> None:
         super().mousePressEvent(event)
@@ -57,8 +57,12 @@ class GraphicsView(qtw.QGraphicsView):
         if self.painting_flag:
             if event.button() == qtc.Qt.MouseButton.LeftButton:
                 mouse_pos = self.mapToScene(event.position().toPoint())
-                self.start_point = mouse_pos
-                self.end_point = self.start_point
+                if self.start_point is None:
+                    self.start_point = mouse_pos
+                    self.end_point = self.start_point
+                else:
+                    self.end_point = mouse_pos
+                    self.update_line()
 
                 self._line = qtc.QLineF(self.start_point, self.end_point)
                 self.graphics_line = Connection(self._line)
@@ -71,6 +75,7 @@ class GraphicsView(qtw.QGraphicsView):
 
                 self.points.append(mouse_pos)
 
+    """
     def mouseReleaseEvent(self, event: qtg.QMouseEvent) -> None:
         super().mouseReleaseEvent(event)
 
@@ -85,6 +90,7 @@ class GraphicsView(qtw.QGraphicsView):
         if len(self.points) == 2:
             self.setCursor(qtc.Qt.CursorShape.ArrowCursor)
             self.painting_flag = False
+    """
 
     def update_line(self):
         if self.painting_flag:
@@ -123,7 +129,6 @@ class Connection(qtw.QGraphicsLineItem):
         self.start_pos = line.p1().toPoint()
         self.end_pos = line.p2().toPoint()
         self.setPen(Pens().point_edge_pen)
-
 
 class LengthText(qtw.QGraphicsTextItem):
     def __init__(self, px_spacing):
