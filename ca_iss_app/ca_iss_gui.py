@@ -118,6 +118,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
     @qtc.Slot()
     def start_painting(self):
         if self.gvi_xray.pixel_spacing is not None:
+            self.gvi_xray.start_point = None
+            self.gvi_xray.end_point = None
             self.gvi_xray.set_painting_flag(True)
 
     @qtc.Slot()

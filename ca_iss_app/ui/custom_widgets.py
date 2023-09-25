@@ -16,7 +16,7 @@ class GraphicsView(qtw.QGraphicsView):
         self.labm_y_pos = None
         self.pixel_spacing = None
         self.painting_flag = False
-        self.points = []
+        self.line_list = []
 
         self.setMouseTracking(True)
         self.setScene(GraphicsScene())
@@ -51,29 +51,31 @@ class GraphicsView(qtw.QGraphicsView):
     def mousePressEvent(self, event: qtg.QMouseEvent) -> None:
         super().mousePressEvent(event)
 
-        if len(self.points) == 2:
-            self.points.clear()
-
         if self.painting_flag:
             if event.button() == qtc.Qt.MouseButton.LeftButton:
                 mouse_pos = self.mapToScene(event.position().toPoint())
-                if self.start_point is None:
+                if self._line is None:
                     self.start_point = mouse_pos
                     self.end_point = self.start_point
+                    self._line = qtc.QLineF(self.start_point, self.end_point)
+                    self.graphics_line = Connection(self._line)
+                    self.length_text = LengthText(self.pixel_spacing)
+                    self.update_line()
                 else:
                     self.end_point = mouse_pos
                     self.update_line()
-
+                    self.painting_flag = False
+                    self.line_list.append(self._line)
+                    self._line = None
+                    self.setCursor(qtc.Qt.CursorShape.ArrowCursor)
+                """
                 self._line = qtc.QLineF(self.start_point, self.end_point)
                 self.graphics_line = Connection(self._line)
                 self.length_text = LengthText(self.pixel_spacing)
                 self.update_line()
-
+                """
                 point = Point(mouse_pos.x(), mouse_pos.y())
                 self.scene().addItem(point)
-                self.points.append(mouse_pos)
-
-                self.points.append(mouse_pos)
 
     """
     def mouseReleaseEvent(self, event: qtg.QMouseEvent) -> None:
@@ -93,14 +95,14 @@ class GraphicsView(qtw.QGraphicsView):
     """
 
     def update_line(self):
-        if self.painting_flag:
-            if not self.start_point.isNull() and not self.end_point.isNull():
-                self._line.setP2(self.end_point)
-                self.graphics_line.setLine(self._line)
-                self.scene().addItem(self.graphics_line)
+        if self.painting_flag and self.start_point:
+            # if not self.start_point.isNull() and not self.end_point.isNull():
+            self._line.setP2(self.end_point)
+            self.graphics_line.setLine(self._line)
+            self.scene().addItem(self.graphics_line)
 
     def get_point_list(self):
-        return self.points
+        return self.line_list
 
     def set_image_metadata(self, metadata):
         self.pixel_spacing = metadata["pixel_spacing"]
@@ -125,7 +127,6 @@ class Point(qtw.QGraphicsEllipseItem):
 class Connection(qtw.QGraphicsLineItem):
     def __init__(self, line: qtc.QLineF):
         super().__init__(line)
-
         self.start_pos = line.p1().toPoint()
         self.end_pos = line.p2().toPoint()
         self.setPen(Pens().point_edge_pen)
