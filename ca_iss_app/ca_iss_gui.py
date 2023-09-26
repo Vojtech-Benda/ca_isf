@@ -124,7 +124,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def info_triggered(self) -> None:
-        print(point_list.points)
+        print(self.gvi_xray.line_list)
 
     def resizeEvent(self, event: qtg.QResizeEvent) -> None:
         super().resizeEvent(event)

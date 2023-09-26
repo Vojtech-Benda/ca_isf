@@ -40,12 +40,10 @@ class GraphicsView(qtw.QGraphicsView):
         self.labm_y_pos.setText(f"{int(cursor_pos.y())}")
 
         if self.painting_flag and self.start_point:
-            # if event.buttons() == qtc.Qt.MouseButton.LeftButton:
             mouse_pos = self.mapToScene(event.position().toPoint())
             self.end_point = mouse_pos
             self.scene().addItem(self.length_text.update_text(self._line))
             self.length_text.update_pos(self._line)
-
             self.update_line()
 
     def mousePressEvent(self, event: qtg.QMouseEvent) -> None:
@@ -55,8 +53,7 @@ class GraphicsView(qtw.QGraphicsView):
             if event.button() == qtc.Qt.MouseButton.LeftButton:
                 mouse_pos = self.mapToScene(event.position().toPoint())
                 if self._line is None:
-                    self.start_point = mouse_pos
-                    self.end_point = self.start_point
+                    self.start_point = self.end_point = mouse_pos
                     self._line = qtc.QLineF(self.start_point, self.end_point)
                     self.graphics_line = Connection(self._line)
                     self.length_text = LengthText(self.pixel_spacing)
@@ -68,35 +65,12 @@ class GraphicsView(qtw.QGraphicsView):
                     self.line_list.append(self._line)
                     self._line = None
                     self.setCursor(qtc.Qt.CursorShape.ArrowCursor)
-                """
-                self._line = qtc.QLineF(self.start_point, self.end_point)
-                self.graphics_line = Connection(self._line)
-                self.length_text = LengthText(self.pixel_spacing)
-                self.update_line()
-                """
+
                 point = Point(mouse_pos.x(), mouse_pos.y())
                 self.scene().addItem(point)
 
-    """
-    def mouseReleaseEvent(self, event: qtg.QMouseEvent) -> None:
-        super().mouseReleaseEvent(event)
-
-        if self.painting_flag:
-            mouse_pos = self.mapToScene(event.position().toPoint())
-            self.end_point = mouse_pos
-            self.update_line()
-
-            point = Point(mouse_pos.x(), mouse_pos.y())
-            self.scene().addItem(point)
-
-        if len(self.points) == 2:
-            self.setCursor(qtc.Qt.CursorShape.ArrowCursor)
-            self.painting_flag = False
-    """
-
     def update_line(self):
         if self.painting_flag and self.start_point:
-            # if not self.start_point.isNull() and not self.end_point.isNull():
             self._line.setP2(self.end_point)
             self.graphics_line.setLine(self._line)
             self.scene().addItem(self.graphics_line)
@@ -130,6 +104,7 @@ class Connection(qtw.QGraphicsLineItem):
         self.start_pos = line.p1().toPoint()
         self.end_pos = line.p2().toPoint()
         self.setPen(Pens().point_edge_pen)
+
 
 class LengthText(qtw.QGraphicsTextItem):
     def __init__(self, px_spacing):
@@ -176,5 +151,5 @@ class Pens:
     def __init__(self):
         self.point_edge_pen = qtg.QPen(qtg.QColor("red"))
         self.point_fill_pen = qtg.QBrush(qtg.QColor("red"))
-        self.point_edge_pen.setWidthF(1.5)
+        self.point_edge_pen.setWidthF(1.25)
         self.point_edge_pen.setCosmetic(True)  # scales lines relative to graphics view
