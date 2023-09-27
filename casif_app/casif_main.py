@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication
 
-from casif_app.ca_iss_gui import MainWindow, DrrGenWindow
+from casif_app.casif_gui import MainWindow, DrrGenWindow
 
 
 def run_main():
