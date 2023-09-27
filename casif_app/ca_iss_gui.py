@@ -5,13 +5,13 @@ from PySide6 import QtCore as qtc
 from PySide6 import QtWidgets as qtw
 from PySide6 import QtGui as qtg
 
-from ca_iss_app.ui.main_window import Ui_win_main_window
-from ca_iss_app.ui.drr_gen_window import Ui_win_drr_gen
+from casif_app.ui.main_window import Ui_win_main_window
+from casif_app.ui.drr_gen_window import Ui_win_drr_gen
 
-import ca_iss_app.ca_iss_io as io
-import ca_iss_app.ca_iss_features as features
-import ca_iss_app.ca_iss_data_storage as data_storage
-import ca_iss_app.ui.custom_widgets as widgets
+import casif_app.ca_iss_io as io
+import casif_app.ca_iss_features as features
+import casif_app.ca_iss_data_storage as data_storage
+import casif_app.ui.custom_widgets as widgets
 
 
 class MainWindow(qtw.QMainWindow, Ui_win_main_window):

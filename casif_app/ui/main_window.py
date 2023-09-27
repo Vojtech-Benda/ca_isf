@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QFrame, QGraph
     QMenuBar, QPushButton, QSizePolicy, QSpacerItem,
     QWidget)
 
-from ca_iss_app.ui.custom_widgets import GraphicsView
+from casif_app.ui.custom_widgets import GraphicsView
 
 class Ui_win_main_window(object):
     def setupUi(self, win_main_window):
