@@ -8,21 +8,16 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
-    QCursor, QFont, QFontDatabase, QGradient,
-    QIcon, QImage, QKeySequence, QLinearGradient,
-    QPainter, QPalette, QPixmap, QRadialGradient,
-    QTransform)
-from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QCheckBox, QComboBox,
-    QFrame, QGraphicsView, QGridLayout, QGroupBox,
-    QLabel, QLineEdit, QMainWindow, QMenu,
-    QMenuBar, QPushButton, QRadioButton, QSizePolicy,
-    QSpacerItem, QToolBox, QWidget)
+from PySide6.QtCore import (QCoreApplication, QMetaObject, QRect,
+                            QSize, Qt)
+from PySide6.QtGui import (QAction, QFont)
+from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QComboBox,
+                               QFrame, QGraphicsView, QGridLayout, QGroupBox,
+                               QLabel, QLineEdit, QMenu,
+                               QMenuBar, QPushButton, QRadioButton, QSizePolicy,
+                               QSpacerItem, QToolBox, QWidget)
 
-from ca_iss_app.ui.custom_widgets import GraphicsView
+from casif_app.ui.custom_widgets import GraphicsView
 
 class Ui_win_main_window(object):
     def setupUi(self, win_main_window):
