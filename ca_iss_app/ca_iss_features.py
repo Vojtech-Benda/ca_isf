@@ -62,18 +62,18 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
 
 
 def generate_drr_alt(ct_volume: sitk.Image,
-                 view: int = 0,
-                 src_img_dist: float = 1000.0,
-                 drr_size: tuple[int, int] = (512, 512),
-                 threshold: float = 200,
-                 ct_source: str = "preop") -> sitk.Image | None:
+                     output_view: int = 0,
+                     src_img_dist: float = 1000.0,
+                     output_drr_size: tuple[int, int] = (512, 512),
+                     threshold: float = 200,
+                     ct_source: str = "preop") -> sitk.Image | None:
     itk_volume = convert_image_sitk_to_itk(ct_volume)  # convert sitk image to itk image
     image_filter.SetInput(itk_volume)
 
     rotation_x = None
     rotation_z = None
 
-    match view:
+    match output_view:
         case 0:  # ap view
             rotation_x = -90.  # in degrees
             rotation_z = 0.
@@ -118,8 +118,8 @@ def generate_drr_alt(ct_volume: sitk.Image,
 
     # sampling scale factor for images bigger than default
     default_drr_size = 512  # x, y size
-    spacing_scale_factor = (drr_size[0] / default_drr_size,
-                            drr_size[1] / default_drr_size)
+    spacing_scale_factor = (output_drr_size[0] / default_drr_size,
+                            output_drr_size[1] / default_drr_size)
 
     match ct_source:
         case "preop":
@@ -139,8 +139,8 @@ def generate_drr_alt(ct_volume: sitk.Image,
                    ct_center[2] - ((ct_size[1] / 2.0) * ct_spacing[1]) - src_img_dist)
     interpolator.SetFocalPoint(focal_point)
 
-    drr_image_size = itk.Size[3]((drr_size[0],
-                                  drr_size[1],
+    drr_image_size = itk.Size[3]((output_drr_size[0],
+                                  output_drr_size[1],
                                   1))
 
     drr_origin = (ct_origin[0],
@@ -209,7 +209,6 @@ interpolator = itk.itkRayCastInterpolateImageFunctionPython.itkRayCastInterpolat
 rescale_filter = sitk.RescaleIntensityImageFilter()
 
 cast_filter = sitk.CastImageFilter()
-
 
 if __name__ == "__main__":
     print(f"Executed {__file__}")

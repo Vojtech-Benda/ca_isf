@@ -11,134 +11,129 @@ from ca_iss_app.ui.drr_gen_window import Ui_win_drr_gen
 import ca_iss_app.ca_iss_io as io
 import ca_iss_app.ca_iss_features as features
 import ca_iss_app.ca_iss_data_storage as data_storage
-import ca_iss_app.ui.custom_widgets as widgets
+
+
+# import ca_iss_app.ui.custom_widgets as widgets
 
 
 class MainWindow(qtw.QMainWindow, Ui_win_main_window):
-    def __init__(self, drr_gen_window) -> None:
+    def __init__(self) -> None:
         super(MainWindow, self).__init__()
         self.setupUi(self)
 
-        self.drr_gen_window = drr_gen_window
-
-        self.mac_info.triggered.connect(self.info_triggered)
         self.mac_exit.triggered.connect(sys.exit)
-        self.mac_read_ct.triggered.connect(self.read_ct_triggered)
-        self.mac_read_xray.triggered.connect(self.read_xray_triggered)
+        self.mac_read_pre_ct.triggered.connect(self.read_ct_triggered)
+        self.mac_read_intra_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_drr.triggered.connect(self.read_drr_triggered)
-        self.mac_write_xray.triggered.connect(self.write_xray_triggered)
-        self.mac_write_drr.triggered.connect(self.write_drr_triggered)
-        self.mac_gen_drr.triggered.connect(self.open_drr_gen_window)
-
-        self.gsc_xray = widgets.GraphicsScene()
-        self.gvi_xray.setScene(self.gsc_xray)
-        self.gvi_xray.set_pos_label(self.labm_xray_x_pos, self.labm_xray_y_pos)
-
-        self.gsc_drr = widgets.GraphicsScene()
+        self.mac_write_pre_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_write_intra_drr.triggered.connect(self.write_drr_triggered)
+        self.rbu_preop.setChecked(True)
+        self.rbu_preop.toggled.connect(self.input_settings_state_change)
+        self.rbu_intraop.toggled.connect(self.input_settings_state_change)
+        self.pbu_drr_start.clicked.connect(self.generate_drr_clicked)
+        self.tob_main.setCurrentIndex(0)
+        self.gsc_drr = qtw.QGraphicsScene()
         self.gvi_drr.setScene(self.gsc_drr)
-        self.gvi_drr.set_pos_label(self.labm_drr_x_pos, self.labm_drr_y_pos)
-
-        self.drr_gen_window.pbu_gen_button.clicked.connect(self.generate_drr_clicked)
-
-        self.pbu_paint.clicked.connect(self.start_painting)
 
     @qtc.Slot()
     def read_ct_triggered(self) -> None:
-        dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít CT", dir=os.path.dirname(io.__file__))
+        dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít DICOM CT", dir=os.path.dirname(
+            io.__file__))
 
         if dir_name:
-            ct_data.ct_volume = io.read_dicom_files(dir_path=dir_name)
-            ct_data.ct_meta = io.read_metadata(image=ct_data.ct_volume)
-            self.labm_drr_name.setText(ct_data.ct_meta["patient_name"])
-            self.drr_gen_window.set_ct_metadata()
+            ct_volume = io.read_dicom_files(dir_path=dir_name)
+            ct_metadata = io.read_metadata(image=preop_ct_data.preop_ct_volume)
 
-    @qtc.Slot()
-    def read_xray_triggered(self) -> None:
-        dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít RTG", dir=os.path.dirname(io.__file__))
-
-        if dir_name:
-            xray_data.xray_image = io.read_dicom_files(dir_path=dir_name)
-            xray_data.xray_meta = io.read_metadata(image=xray_data.xray_image)
-            self.labm_xray_name.setText(xray_data.xray_meta["patient_name"])
-            self.drr_gen_window.set_xray_metadata()
-            self.display_image(xray_data.xray_image, graphics_scene=self.gsc_xray, graphics_view=self.gvi_xray)
+            if self.sender().objectName() == "mac_read_pre_ct":
+                preop_ct_data.preop_ct_volume = ct_volume
+                preop_ct_data.preop_ct_meta = ct_metadata
+                self.labm_pre_ct_name.setText(preop_ct_data.preop_ct_meta["patient_name"])
+            else:
+                intraop_ct_data.intraop_ct_volume = ct_volume
+                intraop_ct_data.intraop_ct_meta = ct_metadata
+                self.labm_intra_ct_name.setText(intraop_ct_data.intraop_ct_meta["patient_name"])
 
     @qtc.Slot()
     def read_drr_triggered(self) -> None:
         print("drr load")
 
     @qtc.Slot()
-    def write_xray_triggered(self) -> None:
-        print("write xray")
-        # file_name, suffix = qtw.QFileDialog.getSaveFileName(self, caption="Uložit CT", dir=os.path.dirname(io.__file__),
-        #                                                     filter="DICOM (*.dcm);;")
-        #
-        # if file_name:
-        #     io.write_ct(file_name, ct_data.ct_volume)
-
-    @qtc.Slot()
     def write_drr_triggered(self) -> None:
         print("write drr")
 
     @qtc.Slot()
-    def open_drr_gen_window(self) -> None:
-        if self.drr_gen_window.isVisible():
-            if not self.drr_gen_window.isActiveWindow():
-                self.drr_gen_window.activateWindow()
-        else:
-            self.drr_gen_window.show()
-
-    @qtc.Slot()
     def generate_drr_clicked(self):
-        drr_size = (float(self.drr_gen_window.led_drr_width.text()),
-                    float(self.drr_gen_window.led_drr_height.text()))
-        drr_angle = float(self.drr_gen_window.led_drr_angle.text())
-        drr_threshold = float(self.drr_gen_window.led_drr_threshold.text())
-        drr_data.drr_image = features.generate_drr(ct_data.ct_volume, xray_data.xray_meta, drr_size,
-                                                   rz_angle_deg=drr_angle, threshold=drr_threshold)
-        self.drr_gen_window.create_drr_metadata()
-        self.drr_gen_window.set_drr_metadata()
-        self.display_image(drr_data.drr_image, graphics_scene=self.gsc_drr, graphics_view=self.gvi_drr)
+        drr_size = (int(self.led_drr_width.text()),
+                    int(self.led_drr_height.text()))
+        drr_view = self.cbo_drr_view.currentIndex()
+        drr_threshold = float(self.led_drr_thresh.text())
+        drr_sid = float(self.led_sid.text())
 
-    @staticmethod
-    def display_image(input_image, graphics_scene: qtw.QGraphicsScene, graphics_view):
-        image_rescaled = features.cast_image(input_image, image_type="uint8")
-        image_array = sitk.GetArrayFromImage(image_rescaled)[0, ...]
+        if self.rbu_preop.isChecked():
+            output_drr_image = features.generate_drr_alt(preop_ct_data.preop_ct_volume,
+                                                         output_view=drr_view,
+                                                         src_img_dist=drr_sid,
+                                                         output_drr_size=drr_size,
+                                                         threshold=drr_threshold,
+                                                         ct_source="preop")
+            preop_drr_data.preop_drr_image = output_drr_image
+        else:
+            output_drr_image = features.generate_drr_alt(intraop_ct_data.intraop_ct_volume,
+                                                         output_view=drr_view,
+                                                         src_img_dist=drr_sid,
+                                                         output_drr_size=drr_size,
+                                                         threshold=drr_threshold,
+                                                         ct_source="intraop")
+            intraop_drr_data.intraop_drr_image = output_drr_image
+
+        self.display_image(output_drr_image)
+        # self.drr_gen_window.create_drr_metadata()
+        # self.drr_gen_window.set_drr_metadata()
+        # self.display_image(drr_data.drr_image, graphics_scene=self.gsc_drr, graphics_view=self.gvi_drr)
+
+    def display_image(self, input_image):
+        # image_rescaled = features.cast_image(input_image, image_type="uint8")
+        image_array = sitk.GetArrayViewFromImage(input_image)[0, ...]
         data = image_array.data
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
-        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides, qtg.QImage.Format_Grayscale8))
-        graphics_view.setSceneRect(0, 0, width, height)
-        image_pixmap.rect()
-        graphics_scene.addPixmap(image_pixmap)
-        graphics_view.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
-        graphics_view.set_image_metadata(xray_data.xray_meta)
-        graphics_scene.update()
-
-    @qtc.Slot()
-    def start_painting(self):
-        if self.gvi_xray.pixel_spacing is not None:
-            self.gvi_xray.set_painting_flag(True)
-
-    @qtc.Slot()
-    def info_triggered(self) -> None:
-        print(point_list.points)
+        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides, qtg.QImage.Format.Format)) #
+        # qtg.QImage.Format_Grayscale8
+        self.gvi_drr.setSceneRect(0, 0, width, height)
+        # graphics_view.setSceneRect(0, 0, width, height)
+        # image_pixmap.rect()
+        self.gsc_drr.addPixmap(image_pixmap)
+        self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.gsc_drr.update()
 
     def resizeEvent(self, event: qtg.QResizeEvent) -> None:
         super().resizeEvent(event)
 
-        xray_width, xray_height = xray_data.xray_image.GetSize()[:2]
-        self.gvi_xray.fitInView(0, 0, xray_width, xray_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
-
-        drr_width, drr_height = drr_data.drr_image.GetSize()[:2]
-        self.gvi_drr.fitInView(0, 0, drr_width, drr_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        # drr_width, drr_height = drr_data.drr_image.GetSize()[:2]
+        # self.gvi_drr.fitInView(0, 0, drr_width, drr_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
 
     def closeEvent(self, event: qtg.QCloseEvent) -> None:
         super().closeEvent(event)
 
         sys.exit()
 
+    def input_settings_state_change(self):
+        if self.rbu_intraop.isChecked():
+            self.led_drr_width.setEnabled(False)
+            self.led_drr_height.setEnabled(False)
+            self.led_sid.setEnabled(False)
+            self.led_drr_width.setText("1000")
+            self.led_drr_height.setText("1000")
+            self.led_sid.setText("1000.0")
+        else:
+            self.led_drr_width.setEnabled(True)
+            self.led_drr_height.setEnabled(True)
+            self.led_sid.setEnabled(True)
+            self.led_drr_width.setText("512")
+            self.led_drr_height.setText("512")
 
+
+"""
 class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):
     def __init__(self) -> None:
         super(DrrGenWindow, self).__init__()
@@ -184,9 +179,9 @@ class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):
                                    f"{drr_meta['size'][1]}")
         self.labm_drr_pixel_spacing.setText(f"{drr_meta['pixel_spacing'][0]:.2f}\\"
                                             f"{drr_meta['pixel_spacing'][1]:.2f}")
+"""
 
-
-ct_data = data_storage.CtData()
-xray_data = data_storage.XrayData()
-drr_data = data_storage.DrrData()
-point_list = data_storage.PointList()
+preop_ct_data = data_storage.PreOpCtData()
+preop_drr_data = data_storage.PreOpDrrData()
+intraop_ct_data = data_storage.IntraOpCtData()
+intraop_drr_data = data_storage.IntraOpDrrData()

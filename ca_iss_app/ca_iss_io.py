@@ -21,22 +21,13 @@ def read_metadata(image: sitk.Image) -> dict:
     image_size = image.GetSize()
     pixel_spacing = image.GetSpacing()
     image_name = reader.GetMetaData(slice=0, key="0010|0010") or None
-    src_det_distance = float(reader.GetMetaData(slice=0, key="0018|1110")) or None
-    output_metadata = {"patient_name": image_name, "size": image_size, "pixel_spacing": pixel_spacing,
-                       "src_det_distance": src_det_distance}
+    # src_det_distance = float(reader.GetMetaData(slice=0, key="0018|1110")) or None
+    output_metadata = {"patient_name": image_name, "size": image_size, "pixel_spacing": pixel_spacing}
     return output_metadata
-
-
-def write_ct(file_name: str, ct_volume: ImageBase):
-    pass
 
 
 def write_drr(image: ImageBase, dir_path: str):
     # path = pathlib.PureWindowsPath(dir_path).with_suffix(".png")
-    pass
-
-
-def write_rtg():
     pass
 
 
