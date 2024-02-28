@@ -56,10 +56,16 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 preop_ct_data.preop_ct_volume = ct_volume
                 preop_ct_data.preop_ct_meta = ct_metadata
                 self.labm_pre_ct_name.setText(preop_ct_data.preop_ct_meta["patient_name"])
+                if self.labm_preop_ct_warning.text != default_ct_text:
+                    self.labm_preop_ct_warning.setText(default_ct_text)
+                    self.labm_preop_ct_warning.setStyleSheet("")
             else:
                 intraop_ct_data.intraop_ct_volume = ct_volume
                 intraop_ct_data.intraop_ct_meta = ct_metadata
                 self.labm_intra_ct_name.setText(intraop_ct_data.intraop_ct_meta["patient_name"])
+                if self.labm_intraop_ct_warning.text != default_ct_text:
+                    self.labm_intraop_ct_warning.setText(default_ct_text)
+                    self.labm_intraop_ct_warning.setStyleSheet("")
 
     @qtc.Slot()
     def read_drr_triggered(self) -> None:
@@ -77,7 +83,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         drr_threshold = float(self.led_drr_thresh.text())
         drr_sid = float(self.led_sid.text())
 
-        if self.rbu_preop.isChecked():  # generate preop drr
+        if self.rbu_preop.isChecked() and self.check_preop_ct_exits():  # generate preop drr
             output_drr_image = features.generate_drr_alt(preop_ct_data.preop_ct_volume,
                                                          output_view=drr_view,
                                                          src_img_dist=drr_sid,
@@ -86,7 +92,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                          ct_source="preop")
             preop_drr_data.preop_drr_image = output_drr_image
             self.cbo_visualization.setCurrentIndex(0)
-        else:  # generate intraop drr
+        elif self.rbu_intraop.isChecked() and self.check_intraop_ct_exists():  # generate intraop drr
             output_drr_image = features.generate_drr_alt(intraop_ct_data.intraop_ct_volume,
                                                          output_view=drr_view,
                                                          src_img_dist=drr_sid,
@@ -96,13 +102,15 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             if self.cbo_inverse_gray.isChecked():
                 output_drr_image = features.invert_drr_image(output_drr_image)
             intraop_drr_data.intraop_drr_image = output_drr_image
+        else:
+            return None
 
         self.display_image(output_drr_image)
         self.cbo_visualization.setCurrentIndex(1)
 
     def display_image(self, input_image):
-        image_rescaled = features.cast_image(input_image, image_type="uint8")
-        image_array = sitk.GetArrayViewFromImage(image_rescaled)[0, ...]
+        # image_rescaled = features.cast_image(input_image, image_type="uint8")
+        image_array = sitk.GetArrayViewFromImage(input_image)[0, ...]
         data = image_array.data #
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
@@ -132,18 +140,36 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.led_drr_width.setText("1000")
             self.led_drr_height.setText("1000")
             self.led_sid.setText("1000.0")
+            self.led_drr_thresh.setText("-25")
         else:
             self.led_drr_width.setEnabled(True)
             self.led_drr_height.setEnabled(True)
             self.led_sid.setEnabled(True)
             self.led_drr_width.setText("512")
             self.led_drr_height.setText("512")
+            self.led_drr_thresh.setText("100")
 
     def display_image_at_index(self):
         if self.cbo_visualization.currentIndex() == 0: # display preop drr image
             self.display_image(preop_drr_data.preop_drr_image)
         elif self.cbo_visualization.currentIndex() == 1: # display intraop drr image
             self.display_image(intraop_drr_data.intraop_drr_image)
+
+    def check_preop_ct_exits(self):
+        if self.labm_pre_ct_name.text() == default_ct_text:
+            self.labm_preop_ct_warning.setText(warning_ct_text)
+            self.labm_preop_ct_warning.setStyleSheet(warning_stylesheet)
+            return False
+        else:
+            return True
+
+    def check_intraop_ct_exists(self):
+        if self.labm_intra_ct_name.text() == default_ct_text:
+            self.labm_intraop_ct_warning.setText(warning_ct_text)
+            self.labm_intraop_ct_warning.setStyleSheet(warning_stylesheet)
+            return False
+        else:
+            return True
 
 """
 class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):
@@ -197,3 +223,6 @@ preop_ct_data = data_storage.PreOpCtData()
 preop_drr_data = data_storage.PreOpDrrData()
 intraop_ct_data = data_storage.IntraOpCtData()
 intraop_drr_data = data_storage.IntraOpDrrData()
+warning_stylesheet = "font-weight: bold; color: red"
+warning_ct_text = "CHYBÍ CT DATA"
+default_ct_text = "---"
