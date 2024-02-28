@@ -3,7 +3,7 @@ import SimpleITK as sitk
 import math
 import numpy as np
 
-
+"""
 def generate_drr(ct_volume: sitk.Image, xray_information: dict,
                  drr_size: tuple[float, float], rz_angle_deg: float = 0.0,
                  threshold: float = 200) -> sitk.Image:
@@ -59,14 +59,15 @@ def generate_drr(ct_volume: sitk.Image, xray_information: dict,
     image_filter.SetOutputOrigin(drr_origin)
     sitk_drr_image = convert_image_itk_to_sitk(image_filter.GetOutput())
     return sitk_drr_image
+"""
 
 
-def generate_drr_alt(ct_volume: sitk.Image,
-                     output_view: int = 0,
-                     src_img_dist: float = 1000.0,
-                     output_drr_size: tuple[int, int] = (512, 512),
-                     threshold: float = 200,
-                     ct_source: str = "preop") -> sitk.Image | None:
+def generate_drr(ct_volume: sitk.Image,
+                 output_view: int = 0,
+                 src_img_dist: float = 1000.0,
+                 output_drr_size: tuple[int, int] = (512, 512),
+                 threshold: float = 200,
+                 ct_source: str = "preop") -> sitk.Image | None:
     itk_volume = convert_image_sitk_to_itk(ct_volume)  # convert sitk image to itk image
     image_filter.SetInput(itk_volume)
 
