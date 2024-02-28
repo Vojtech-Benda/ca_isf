@@ -17,11 +17,11 @@ class IntraOpCtData:
 @dataclass
 class PreOpDrrData:
     preop_drr_image: sitk.Image = field(default_factory=sitk.Image)
-    preop_drr_meta: dict = field(default_factory=dict)
+    preop_drr_exist_state: bool = False
 
 
 @dataclass
 class IntraOpDrrData:
     intraop_drr_image: sitk.Image = field(default_factory=sitk.Image)
-    intraop_drr_meta: dict = field(default_factory=dict)
+    intra_drr_exist_state: bool = False
 

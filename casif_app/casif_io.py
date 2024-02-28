@@ -1,8 +1,7 @@
-import itk
 import SimpleITK as sitk
-from itk.support.types import ImageBase
 import pathlib
 from typing import Union
+from casif_app.casif_features import cast_image
 
 
 def read_dicom_files(dir_path: str) -> Union[sitk.Image, None]:
@@ -21,14 +20,13 @@ def read_metadata(image: sitk.Image) -> dict:
     image_size = image.GetSize()
     pixel_spacing = image.GetSpacing()
     image_name = reader.GetMetaData(slice=0, key="0010|0010") or None
-    # src_det_distance = float(reader.GetMetaData(slice=0, key="0018|1110")) or None
     output_metadata = {"patient_name": image_name, "size": image_size, "pixel_spacing": pixel_spacing}
     return output_metadata
 
 
-def write_drr(image: ImageBase, dir_path: str):
-    # path = pathlib.PureWindowsPath(dir_path).with_suffix(".png")
-    pass
+def write_drr(sitk_image: sitk.Image, file_path: str):
+    rescaled_image = cast_image(sitk_image, sitk.sitkUInt8)
+    sitk.WriteImage(drr_uint8, file_path, imageIO="PNGImageIO")
 
 
 # defining ct and xray image series reader classes

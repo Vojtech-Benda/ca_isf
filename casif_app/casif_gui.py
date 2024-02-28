@@ -12,9 +12,6 @@ import casif_app.casif_features as features
 import casif_app.casif_data_storage as data_storage
 
 
-# import ca_iss_app.ui.custom_widgets as widgets
-
-
 class MainWindow(qtw.QMainWindow, Ui_win_main_window):
     def __init__(self) -> None:
         super(MainWindow, self).__init__()
@@ -25,8 +22,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.mac_read_pre_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_intra_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_drr.triggered.connect(self.read_drr_triggered)
-        self.mac_write_pre_drr.triggered.connect(self.write_drr_triggered)
-        self.mac_write_intra_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_write_pre_drr.triggered.connect(self.write_preop_drr_triggered)
+        self.mac_write_intra_drr.triggered.connect(self.write_intraop_drr_triggered)
 
         # button actions func connections
         self.rbu_preop.setChecked(True)
@@ -72,8 +69,20 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         print("drr load")
 
     @qtc.Slot()
-    def write_drr_triggered(self) -> None:
-        print("write drr")
+    def write_preop_drr_triggered(self) -> None:
+        file_path = qtw.QFileDialog.getSaveFileName(self, caption="Uložit předoperační DRR obraz",
+                                                    dir=os.path.dirname(io.__file__),
+                                                    filter="Image (*.png)")
+        if preop_drr_data.preop_drr_exist_state:
+            io.write_drr(preop_drr_data.preop_drr_image, file_path[0])
+
+    @qtc.Slot()
+    def write_intraop_drr_triggered(self) -> None:
+        file_path = qtw.QFileDialog.getSaveFileName(self, caption="Uložit DRR obraz",
+                                                    dir=os.path.dirname(io.__file__),
+                                                    filter="Image (*.png)")
+        if intraop_drr_data.intra_drr_exist_state:
+            io.write_drr(intraop_drr_data.intraop_drr_image, file_path[0])
 
     @qtc.Slot()
     def generate_drr_clicked(self):
@@ -84,34 +93,36 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         drr_sid = float(self.led_sid.text())
 
         if self.rbu_preop.isChecked() and self.check_preop_ct_exits():  # generate preop drr
-            output_drr_image = features.generate_drr_alt(preop_ct_data.preop_ct_volume,
-                                                         output_view=drr_view,
-                                                         src_img_dist=drr_sid,
-                                                         output_drr_size=drr_size,
-                                                         threshold=drr_threshold,
-                                                         ct_source="preop")
+            output_drr_image = features.generate_drr(preop_ct_data.preop_ct_volume,
+                                                     output_view=drr_view,
+                                                     src_img_dist=drr_sid,
+                                                     output_drr_size=drr_size,
+                                                     threshold=drr_threshold,
+                                                     ct_source="preop")
             preop_drr_data.preop_drr_image = output_drr_image
+            preop_drr_data.preop_drr_exist_state = True
             self.cbo_visualization.setCurrentIndex(0)
         elif self.rbu_intraop.isChecked() and self.check_intraop_ct_exists():  # generate intraop drr
-            output_drr_image = features.generate_drr_alt(intraop_ct_data.intraop_ct_volume,
-                                                         output_view=drr_view,
-                                                         src_img_dist=drr_sid,
-                                                         output_drr_size=drr_size,
-                                                         threshold=drr_threshold,
-                                                         ct_source="intraop")
+            output_drr_image = features.generate_drr(intraop_ct_data.intraop_ct_volume,
+                                                     output_view=drr_view,
+                                                     src_img_dist=drr_sid,
+                                                     output_drr_size=drr_size,
+                                                     threshold=drr_threshold,
+                                                     ct_source="intraop")
             if self.cbo_inverse_gray.isChecked():
                 output_drr_image = features.invert_drr_image(output_drr_image)
             intraop_drr_data.intraop_drr_image = output_drr_image
+            intraop_drr_data.intra_drr_exist_state = True
+            self.cbo_visualization.setCurrentIndex(1)
         else:
             return None
 
         self.display_image(output_drr_image)
-        self.cbo_visualization.setCurrentIndex(1)
 
     def display_image(self, input_image):
         # image_rescaled = features.cast_image(input_image, image_type="uint8")
         image_array = sitk.GetArrayViewFromImage(input_image)[0, ...]
-        data = image_array.data #
+        data = image_array.data  #
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
         image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides,
@@ -150,9 +161,9 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.led_drr_thresh.setText("100")
 
     def display_image_at_index(self):
-        if self.cbo_visualization.currentIndex() == 0: # display preop drr image
+        if self.cbo_visualization.currentIndex() == 0:  # display preop drr image
             self.display_image(preop_drr_data.preop_drr_image)
-        elif self.cbo_visualization.currentIndex() == 1: # display intraop drr image
+        elif self.cbo_visualization.currentIndex() == 1:  # display intraop drr image
             self.display_image(intraop_drr_data.intraop_drr_image)
 
     def check_preop_ct_exits(self):
@@ -171,53 +182,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         else:
             return True
 
-"""
-class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):
-    def __init__(self) -> None:
-        super(DrrGenWindow, self).__init__()
-        self.setupUi(self)
-
-        self.confirm_icon = self.style().standardIcon(qtw.QStyle.StandardPixmap.SP_DialogApplyButton).pixmap(
-            qtc.QSize(20, 20))
-        self.cancel_icon = self.style().standardIcon(qtw.QStyle.StandardPixmap.SP_DialogCancelButton).pixmap(
-            qtc.QSize(20, 20))
-        self.labm_ct_loaded.setPixmap(self.cancel_icon)
-        self.labm_xray_loaded.setPixmap(self.cancel_icon)
-
-    def set_ct_metadata(self) -> None:
-        ct_meta = ct_data.ct_meta
-        self.labm_ct_loaded.setPixmap(self.confirm_icon)
-        self.labm_ct_name.setText(ct_meta["patient_name"])
-        self.labm_slice_count.setText(f"{ct_meta['size'][2]}")
-        self.labm_slice_thickness.setText(f"{ct_meta['pixel_spacing'][2]:.2f}")
-
-    def set_xray_metadata(self) -> None:
-        xray_meta = xray_data.xray_meta
-        self.labm_xray_loaded.setPixmap(self.confirm_icon)
-        self.labm_xray_name.setText(xray_meta["patient_name"])
-        self.labm_xray_sdd.setText(f"{xray_meta['src_det_distance']}")
-        self.labm_xray_size.setText(f"{xray_meta['size'][0]}\\"
-                                    f"{xray_meta['size'][1]}")
-        self.labm_xray_pixel_spacing.setText(f"{xray_meta['pixel_spacing'][0]:.2f}\\"
-                                             f"{xray_meta['pixel_spacing'][1]:.2f}")
-
-    def create_drr_metadata(self) -> None:
-        drr_size = drr_data.drr_image.GetSize()
-        drr_angle = int(self.led_drr_angle.text())
-        drr_name = f"{ct_data.ct_meta['patient_name']}_drr_{drr_angle}"
-        drr_threshold = int(self.led_drr_threshold.text())
-        drr_pixel_spacing = drr_data.drr_image.GetSpacing()
-
-        drr_data.drr_meta = {"name": drr_name, "size": drr_size, "angle": drr_angle, "threshold": drr_threshold,
-                             "pixel_spacing": drr_pixel_spacing}
-
-    def set_drr_metadata(self) -> None:
-        drr_meta = drr_data.drr_meta
-        self.labm_drr_size.setText(f"{drr_meta['size'][0]}\\"
-                                   f"{drr_meta['size'][1]}")
-        self.labm_drr_pixel_spacing.setText(f"{drr_meta['pixel_spacing'][0]:.2f}\\"
-                                            f"{drr_meta['pixel_spacing'][1]:.2f}")
-"""
 
 preop_ct_data = data_storage.PreOpCtData()
 preop_drr_data = data_storage.PreOpDrrData()

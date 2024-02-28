@@ -1,6 +1,5 @@
 import itk
 import SimpleITK as sitk
-import math
 import numpy as np
 
 """
@@ -157,10 +156,10 @@ def generate_drr(ct_volume: sitk.Image,
     return convert_image_itk_to_sitk(image_filter.GetOutput())
 
 
-def cast_image(image: sitk.Image, image_type: str) -> sitk.Image:
+def cast_image(image: sitk.Image, image_type) -> sitk.Image:
     match image_type:
-        case "uint8":
-            cast_filter.SetOutputPixelType(sitk.sitkUInt8)
+        case sitk.sitkUInt8:
+            cast_filter.SetOutputPixelType(image_type)
             rescale_filter.SetOutputMinimum(0)
             rescale_filter.SetOutputMaximum(255)
         case "uint16":
