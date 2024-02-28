@@ -7,9 +7,9 @@ from PySide6 import QtGui as qtg
 
 from casif_app.ui.main_window_alt import Ui_win_main_window
 
-import casif_app.ca_iss_io as io
-import casif_app.ca_iss_features as features
-import casif_app.ca_iss_data_storage as data_storage
+import casif_app.casif_io as io
+import casif_app.casif_features as features
+import casif_app.casif_data_storage as data_storage
 
 
 # import ca_iss_app.ui.custom_widgets as widgets
@@ -20,19 +20,28 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         super(MainWindow, self).__init__()
         self.setupUi(self)
 
+        # menu actions func connections
         self.mac_exit.triggered.connect(sys.exit)
         self.mac_read_pre_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_intra_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_drr.triggered.connect(self.read_drr_triggered)
         self.mac_write_pre_drr.triggered.connect(self.write_drr_triggered)
         self.mac_write_intra_drr.triggered.connect(self.write_drr_triggered)
+
+        # button actions func connections
         self.rbu_preop.setChecked(True)
         self.rbu_preop.toggled.connect(self.input_settings_state_change)
         self.rbu_intraop.toggled.connect(self.input_settings_state_change)
         self.pbu_drr_start.clicked.connect(self.generate_drr_clicked)
+
+        # display first toolbox page
         self.tob_main.setCurrentIndex(0)
+
+        # create graphics scene
         self.gsc_drr = qtw.QGraphicsScene()
         self.gvi_drr.setScene(self.gsc_drr)
+
+        self.cbo_visualization.currentIndexChanged.connect(self.display_image_at_index)
 
     @qtc.Slot()
     def read_ct_triggered(self) -> None:
@@ -68,7 +77,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         drr_threshold = float(self.led_drr_thresh.text())
         drr_sid = float(self.led_sid.text())
 
-        if self.rbu_preop.isChecked():
+        if self.rbu_preop.isChecked():  # generate preop drr
             output_drr_image = features.generate_drr_alt(preop_ct_data.preop_ct_volume,
                                                          output_view=drr_view,
                                                          src_img_dist=drr_sid,
@@ -76,31 +85,30 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                          threshold=drr_threshold,
                                                          ct_source="preop")
             preop_drr_data.preop_drr_image = output_drr_image
-        else:
+            self.cbo_visualization.setCurrentIndex(0)
+        else:  # generate intraop drr
             output_drr_image = features.generate_drr_alt(intraop_ct_data.intraop_ct_volume,
                                                          output_view=drr_view,
                                                          src_img_dist=drr_sid,
                                                          output_drr_size=drr_size,
                                                          threshold=drr_threshold,
                                                          ct_source="intraop")
+            if self.cbo_inverse_gray.isChecked():
+                output_drr_image = features.invert_drr_image(output_drr_image)
             intraop_drr_data.intraop_drr_image = output_drr_image
 
         self.display_image(output_drr_image)
-        # self.drr_gen_window.create_drr_metadata()
-        # self.drr_gen_window.set_drr_metadata()
-        # self.display_image(drr_data.drr_image, graphics_scene=self.gsc_drr, graphics_view=self.gvi_drr)
+        self.cbo_visualization.setCurrentIndex(1)
 
     def display_image(self, input_image):
-        # image_rescaled = features.cast_image(input_image, image_type="uint8")
-        image_array = sitk.GetArrayViewFromImage(input_image)[0, ...]
-        data = image_array.data
+        image_rescaled = features.cast_image(input_image, image_type="uint8")
+        image_array = sitk.GetArrayViewFromImage(image_rescaled)[0, ...]
+        data = image_array.data #
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
-        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides, qtg.QImage.Format.Format)) #
-        # qtg.QImage.Format_Grayscale8
+        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides,
+                                              qtg.QImage.Format.Format_Grayscale16))
         self.gvi_drr.setSceneRect(0, 0, width, height)
-        # graphics_view.setSceneRect(0, 0, width, height)
-        # image_pixmap.rect()
         self.gsc_drr.addPixmap(image_pixmap)
         self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
         self.gsc_drr.update()
@@ -131,6 +139,11 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.led_drr_width.setText("512")
             self.led_drr_height.setText("512")
 
+    def display_image_at_index(self):
+        if self.cbo_visualization.currentIndex() == 0: # display preop drr image
+            self.display_image(preop_drr_data.preop_drr_image)
+        elif self.cbo_visualization.currentIndex() == 1: # display intraop drr image
+            self.display_image(intraop_drr_data.intraop_drr_image)
 
 """
 class DrrGenWindow(qtw.QWidget, Ui_win_drr_gen):

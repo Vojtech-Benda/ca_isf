@@ -195,6 +195,10 @@ def convert_image_itk_to_sitk(itk_image: itk.Image) -> sitk.Image:
     return sitk_image
 
 
+def invert_drr_image(sitk_image: sitk.Image) -> sitk.Image:
+    image_view = sitk.GetArrayViewFromImage(sitk_image)
+    return sitk.InvertIntensity(sitk_image, maximum=image_view.max())
+
 input_image_type = itk.Image[itk.SS, 3]
 output_image_type = itk.Image[itk.UC, 3]
 
@@ -209,6 +213,8 @@ interpolator = itk.itkRayCastInterpolateImageFunctionPython.itkRayCastInterpolat
 rescale_filter = sitk.RescaleIntensityImageFilter()
 
 cast_filter = sitk.CastImageFilter()
+
+invert_intensity_filter = sitk.InvertIntensityImageFilter()
 
 if __name__ == "__main__":
     print(f"Executed {__file__}")
