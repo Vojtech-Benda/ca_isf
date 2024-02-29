@@ -1,7 +1,6 @@
-output/
-sample_files/
+input_files/
+output_data/
 temp/
-build_settings.png
+*.png
 venv/
 .idea/
-input_files/
