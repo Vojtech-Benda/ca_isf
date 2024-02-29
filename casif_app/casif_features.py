@@ -71,7 +71,7 @@ def generate_drr(ct_volume: sitk.Image,
     image_filter.SetInput(itk_volume)
 
     rotation_x = None
-    rotation_z = None
+    rotation_z = 0.
 
     match output_view:
         case 0:  # ap view
