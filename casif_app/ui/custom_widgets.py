@@ -31,7 +31,7 @@ class GraphicsView(qtw.QGraphicsView):
         if flag:
             self.painting_flag = flag
             self.setCursor(qtc.Qt.CursorShape.CrossCursor)
-
+"""
     def mouseMoveEvent(self, event: qtg.QMouseEvent) -> None:
         super().mouseMoveEvent(event)
 
@@ -80,7 +80,7 @@ class GraphicsView(qtw.QGraphicsView):
 
     def set_image_metadata(self, metadata):
         self.pixel_spacing = metadata["pixel_spacing"]
-
+"""
 
 class GraphicsScene(qtw.QGraphicsScene):
     def __init__(self):

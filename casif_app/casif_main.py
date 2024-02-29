@@ -1,14 +1,13 @@
 import sys
 from PySide6.QtWidgets import QApplication
 
-from casif_app.casif_gui import MainWindow, DrrGenWindow
+from casif_app.casif_gui import MainWindow
 
 
 def run_main():
     app = QApplication(sys.argv)
 
-    drr_gen_window = DrrGenWindow()
-    main_window = MainWindow(drr_gen_window)
+    main_window = MainWindow()
     main_window.show()
 
     sys.exit(app.exec())
