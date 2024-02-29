@@ -22,8 +22,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.mac_read_pre_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_intra_ct.triggered.connect(self.read_ct_triggered)
         self.mac_read_drr.triggered.connect(self.read_drr_triggered)
-        self.mac_write_pre_drr.triggered.connect(self.write_preop_drr_triggered)
-        self.mac_write_intra_drr.triggered.connect(self.write_intraop_drr_triggered)
+        self.mac_write_pre_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_write_intra_drr.triggered.connect(self.write_drr_triggered)
 
         # button actions func connections
         self.rbu_preop.setChecked(True)
@@ -42,8 +42,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def read_ct_triggered(self) -> None:
-        dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít DICOM CT", dir=os.path.dirname(
-            io.__file__))
+        dir_name = qtw.QFileDialog.getExistingDirectory(self, caption="Otevřít DICOM CT",
+                                                        dir=os.getcwd())
 
         if dir_name:
             ct_volume = io.read_dicom_files(dir_path=dir_name)
@@ -66,15 +66,21 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     @qtc.Slot()
     def read_drr_triggered(self) -> None:
-        print("drr load")
+        pass
 
     @qtc.Slot()
-    def write_preop_drr_triggered(self) -> None:
+    def write_drr_triggered(self) -> None:
         file_path = qtw.QFileDialog.getSaveFileName(self, caption="Uložit předoperační DRR obraz",
-                                                    dir=os.path.dirname(io.__file__),
-                                                    filter="Image (*.png)")
-        if preop_drr_data.preop_drr_exist_state:
-            io.write_drr(preop_drr_data.preop_drr_image, file_path[0])
+                                                    dir=os.getcwd(),
+                                                    filter="MHA (*.mha)")
+        if file_path[0]:
+            drr_image = None
+            if self.sender().objectName() == "mac_write_pre_drr" and preop_drr_data.preop_drr_exist_state is True:
+                drr_image = preop_drr_data.preop_drr_image
+            elif self.sender().objectName() == "mac_write_intra_drr" and intraop_drr_data.intra_drr_exist_state is True:
+                drr_image = intraop_drr_data.intraop_drr_image
+
+            io.write_drr(drr_image, file_path[0])
 
     @qtc.Slot()
     def write_intraop_drr_triggered(self) -> None:
@@ -98,7 +104,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                      src_img_dist=drr_sid,
                                                      output_drr_size=drr_size,
                                                      threshold=drr_threshold,
-                                                     ct_source="preop")
+                                                     ct_source_type="preop")
             preop_drr_data.preop_drr_image = output_drr_image
             preop_drr_data.preop_drr_exist_state = True
             self.cbo_visualization.setCurrentIndex(0)
@@ -108,7 +114,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                      src_img_dist=drr_sid,
                                                      output_drr_size=drr_size,
                                                      threshold=drr_threshold,
-                                                     ct_source="intraop")
+                                                     ct_source_type="intraop")
             if self.cbo_inverse_gray.isChecked():
                 output_drr_image = features.invert_drr_image(output_drr_image)
             intraop_drr_data.intraop_drr_image = output_drr_image
@@ -120,13 +126,13 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.display_image(output_drr_image)
 
     def display_image(self, input_image):
-        # image_rescaled = features.cast_image(input_image, image_type="uint8")
-        image_array = sitk.GetArrayViewFromImage(input_image)[0, ...]
+        image_rescaled = features.cast_image(input_image, image_type=sitk.sitkUInt8)
+        image_array = sitk.GetArrayViewFromImage(image_rescaled)[0, ...]
         data = image_array.data  #
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
         image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides,
-                                              qtg.QImage.Format.Format_Grayscale16))
+                                              qtg.QImage.Format.Format_Grayscale8))
         self.gvi_drr.setSceneRect(0, 0, width, height)
         self.gsc_drr.addPixmap(image_pixmap)
         self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)

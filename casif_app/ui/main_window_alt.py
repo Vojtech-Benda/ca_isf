@@ -8,16 +8,19 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QMetaObject, QRect,
-                            QSize, Qt)
-from PySide6.QtGui import (QAction, QFont)
-from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QComboBox,
-                               QFrame, QGraphicsView, QGridLayout, QGroupBox,
-                               QLabel, QLineEdit, QMenu,
-                               QMenuBar, QPushButton, QRadioButton, QSizePolicy,
-                               QSpacerItem, QToolBox, QWidget)
-
-from casif_app.ui.custom_widgets import GraphicsView
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
+from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QCheckBox, QComboBox,
+    QFrame, QGraphicsView, QGridLayout, QGroupBox,
+    QLabel, QLineEdit, QMainWindow, QMenu,
+    QMenuBar, QPushButton, QRadioButton, QSizePolicy,
+    QSpacerItem, QToolBox, QWidget)
 
 class Ui_win_main_window(object):
     def setupUi(self, win_main_window):
@@ -302,7 +305,7 @@ class Ui_win_main_window(object):
         self.tob_main.addItem(self.pag_drr, u"Generace DRR obrazu")
         self.pag_reg = QWidget()
         self.pag_reg.setObjectName(u"pag_reg")
-        self.pag_reg.setGeometry(QRect(0, 0, 373, 588))
+        self.pag_reg.setGeometry(QRect(0, 0, 98, 28))
         self.pbu_reg_start = QPushButton(self.pag_reg)
         self.pbu_reg_start.setObjectName(u"pbu_reg_start")
         self.pbu_reg_start.setGeometry(QRect(110, 70, 75, 25))
@@ -352,7 +355,7 @@ class Ui_win_main_window(object):
 
         self.gridLayout.addWidget(self.gbo_image_info, 1, 0, 1, 2)
 
-        self.gvi_drr = GraphicsView(self.lay_main_layout)
+        self.gvi_drr = QGraphicsView(self.lay_main_layout)
         self.gvi_drr.setObjectName(u"gvi_drr")
         self.gvi_drr.setEnabled(True)
         sizePolicy4 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
@@ -424,19 +427,19 @@ class Ui_win_main_window(object):
         self.mac_read_drr.setText(QCoreApplication.translate("win_main_window", u"DRR obraz", None))
         self.lab_thresh.setText(QCoreApplication.translate("win_main_window", u"Pr\u00e1h [HU]:", None))
         self.led_drr_width.setInputMask("")
-        self.led_drr_width.setText(QCoreApplication.translate("win_main_window", u"512", None))
+        self.led_drr_width.setText(QCoreApplication.translate("win_main_window", u"1000", None))
         self.cbo_drr_view.setItemText(0, QCoreApplication.translate("win_main_window", u"P\u0159edozadn\u00ed (AP)", None))
         self.cbo_drr_view.setItemText(1, QCoreApplication.translate("win_main_window", u"Bo\u010dn\u00ed zleva", None))
         self.cbo_drr_view.setItemText(2, QCoreApplication.translate("win_main_window", u"Bo\u010dn\u00ed zprava", None))
         self.cbo_drr_view.setItemText(3, QCoreApplication.translate("win_main_window", u"P\u00e1nevn\u00ed vstup", None))
 
         self.cbo_inverse_gray.setText("")
-        self.led_drr_thresh.setText(QCoreApplication.translate("win_main_window", u"200", None))
+        self.led_drr_thresh.setText(QCoreApplication.translate("win_main_window", u"100", None))
         self.led_sid.setText(QCoreApplication.translate("win_main_window", u"1000.0", None))
         self.lab_sid.setText(QCoreApplication.translate("win_main_window", u"Vzd\u00e1lenost zdroj-detektor [mm]:", None))
         self.pbu_drr_start.setText(QCoreApplication.translate("win_main_window", u"Vytvo\u0159it DRR", None))
         self.lab_drr_width.setText(QCoreApplication.translate("win_main_window", u"\u0160\u00ed\u0159ka [px]:", None))
-        self.led_drr_height.setText(QCoreApplication.translate("win_main_window", u"512", None))
+        self.led_drr_height.setText(QCoreApplication.translate("win_main_window", u"1000", None))
         self.lab_ct_source.setText(QCoreApplication.translate("win_main_window", u"CT zdroj:", None))
         self.lab_drr_height.setText(QCoreApplication.translate("win_main_window", u"V\u00fd\u0161ka [px]:", None))
         self.lab_inverse_gray.setText(QCoreApplication.translate("win_main_window", u"Inverze \u0161edi:", None))

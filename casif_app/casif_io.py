@@ -25,14 +25,17 @@ def read_metadata(image: sitk.Image) -> dict:
 
 
 def write_drr(sitk_image: sitk.Image, file_path: str):
-    rescaled_image = cast_image(sitk_image, sitk.sitkUInt8)
-    sitk.WriteImage(drr_uint8, file_path, imageIO="PNGImageIO")
+    writer.SetFileName(file_path)
+    writer.Execute(sitk_image)
 
 
 # defining ct and xray image series reader classes
 reader = sitk.ImageSeriesReader()
 reader.LoadPrivateTagsOn()
 reader.MetaDataDictionaryArrayUpdateOn()
+
+writer = sitk.ImageFileWriter()
+writer.SetImageIO("MetaImageIO")
 
 if __name__ == "__main__":
     print(f"Executed {__file__}")
