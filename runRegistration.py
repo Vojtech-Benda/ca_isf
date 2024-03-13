@@ -5,9 +5,8 @@ import sys
 
 
 def getMetricAndErrorsStart():
-    global metric_values, multires_iterations
-    global min_values, max_values, mean_values, std_values, error_values
-    global current_iteration
+    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+        current_iteration
 
     metric_values = []
     multires_iterations = []
@@ -20,15 +19,13 @@ def getMetricAndErrorsStart():
 
 
 def getMetricAndErrorsEnd():
-    global metric_values, multires_iterations
-    global min_values, max_values, mean_values, std_values, error_values
-    global current_iteration
+    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+        current_iteration
 
 
 def getMetricAndErrors(registration_method, fixed_points, moving_points):
-    global metric_values, multires_iterations
-    global min_values, max_values, mean_values, std_values, error_values
-    global current_iteration
+    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+        current_iteration
 
     if registration_method.GetOptimizerIteration() == current_iteration:
         return
@@ -49,7 +46,7 @@ def getMetricAndErrors(registration_method, fixed_points, moving_points):
     min_values.append(min_error)
     max_values.append(max_error)
     std_values.append(std_error)
-    error_values.append(error_values)
+    error_values.append(error)
 
 
 def updateMultiresIterations():
@@ -73,46 +70,39 @@ def runGradientDescent(reg_method, fixed_image, moving_image):
                                              convergenceMinimumValue=1e-5,
                                              convergenceWindowSize=5)
 
-    out_transform = reg_method.Execute(fixed_image, moving_image)
+    final_transform = reg_method.Execute(fixed_image, moving_image)
     print(f"Optimizer stop condition: {reg_method.GetOptimizerStopConditionDescription()}")
     print(f" Iteration: {reg_method.GetOptimizerIteration()}")
     print(f" Metric value: {reg_method.GetMetricValue()}")
 
-    return out_transform
+    return final_transform
 
 
 def getPoints(path):
     pointList = []
     with open(path, "r") as pointsFile:
         [pointList.append(line.split(",")[1:4]) for line in pointsFile.readlines()[1:]]
-        pointList = [float(coords) for sublist in pointList for coords in sublist]
-        return pointList
-
+        return [[float(coords) for coords in sublist] for sublist in pointList]
 
 def runMain():
-    global metric_values, multires_iterations
-    global min_values, max_values, mean_values, std_values, error_values
-    global current_iteration
-    metric_values = []
-    multires_iterations = []
+    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+        current_iteration
 
     print("Loading files...")
     preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop{view.upper()}.mha")
     intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}.mha")
 
     print(preopDrrPath, intraopDrrPath)
-    preopImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32)
-    intraopImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32)
+    movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32)
+    fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32)
 
     fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}FixedPoints{view.upper()}.csv"))
     movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}MovingPoints{view.upper()}.csv"))
 
     # intraopImageInverted = sitk.InvertIntensity(intraopImage, maximum=1)
-    print(f"moving: {preopImage.GetSize()}, fixed: {intraopImage.GetSize()}")
+    print(f"moving: {movingImage.GetSize()}, fixed: {fixedImage.GetSize()}")
 
     print("Starting registration...")
-    fixedImage = intraopImage
-    movingImage = preopImage
     # movingImage.SetOrigin(fixedImage.GetOrigin())
     # movingImage.SetSpacing(fixedImage.GetSpacing())
     print(f"Fixed image, spacing: {fixedImage.GetSpacing()}, size: {fixedImage.GetSize()}, "
@@ -121,10 +111,11 @@ def runMain():
           f"direction: {movingImage.GetDirection()}, origin: {movingImage.GetOrigin()}")
 
     initialTransform = sitk.CenteredTransformInitializer(fixedImage, movingImage,
-                                                         sitk.AffineTransform(3))
+                                                         sitk.AffineTransform(3),
+                                                         sitk.CenteredTransformInitializerFilter.MOMENTS)
 
-    initialImage = sitk.Resample(movingImage, fixedImage, initialTransform, sitk.sitkLinear, 0.0,
-                                 movingImage.GetPixelID())
+    movingInitialImage = sitk.Resample(movingImage, fixedImage, initialTransform, sitk.sitkLinear, 0.0,
+                                       movingImage.GetPixelID())
 
     initialTransformInverse = initialTransform.GetInverse()
     movingInitialPoints = [initialTransformInverse.TransformPoint(p) for p in movingPoints]
@@ -154,45 +145,58 @@ def runMain():
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
 
     if regOptim == "gradient":
-        outTransform = runGradientDescent(registration, fixedImage, movingImage)
+        finalTransform = runGradientDescent(registration, fixedImage, movingImage)
     else:
         pass
 
     final_iter = registration.GetOptimizerIteration()
     print("Resampling transformed image...")
-    movingImageResampled = sitk.Resample(movingImage, fixedImage, outTransform,
+    movingFinalImage = sitk.Resample(movingImage, fixedImage, finalTransform,
                                          sitk.sitkLinear, 0.0, movingImage.GetPixelID())
 
-    outTransformInverse = outTransform.GetInverse()
-    movingFinalPoints = [outTransformInverse.TransformPoint(p) for p in movingPoints]
+    finalTransformInverse = finalTransform.GetInverse()
+    movingFinalPoints = [finalTransformInverse.TransformPoint(p) for p in movingPoints]
 
-    patientDir = os.path.join(inputDir, f"registration\\{regOptim}")
+    (pre_mean_error, pre_std_error, pre_min_error,
+     pre_max_error, pre_error) = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
+
+    (initial_mean_error, initial_std_error, initial_min_error,
+     initial_max_error, initial_error) = getRegistrationErrors(initialTransform, fixedPoints, movingPoints)
+
+    (final_mean_error, final_std_error, final_min_error,
+     final_max_error, final_error) = getRegistrationErrors(finalTransform, fixedPoints, movingPoints)
+
+    patientDir = os.path.join(inputDir, f"{regOptim}\\")
     if not os.path.exists(patientDir):
         os.makedirs(patientDir)
 
     print("Saving images, metrics, errors, points...")
-    fixedPath = os.path.join(patientDir, f"pacient{patientNumber}fixedImage{view.upper()}")
-    movingPath = os.path.join(patientDir, f"pacient{patientNumber}movingImage{view.upper()}.npy")
-    resampledPath = os.path.join(patientDir, f"pacient{patientNumber}resampledImage{view.upper()}.npy")
-    metricsPath = os.path.join(patientDir, f"pacient{patientNumber}registrationInfo{view.upper()}.npy")
+    imagePath = os.path.join(patientDir, f"pacient{patientNumber}Images{view.upper()}.npz")
+    # fixedPath = os.path.join(patientDir, f"pacient{patientNumber}fixedImage{view.upper()}.npy")
+    # movingPath = os.path.join(patientDir, f"pacient{patientNumber}movingImage{view.upper()}.npy")
+    # resampledPath = os.path.join(patientDir, f"pacient{patientNumber}resampledImage{view.upper()}.npy")
+    metricsPath = os.path.join(patientDir, f"pacient{patientNumber}registrationInfo{view.upper()}.npz")
     errorsPath = os.path.join(patientDir, f"pacient{patientNumber}ErrorsInfo{view.upper()}.npz")
     pointsPath = os.path.join(patientDir, f"pacient{patientNumber}PointsInfo{view.upper()}.npz")
 
-    np.save(fixedPath, sitk.GetArrayViewFromImage(fixedImage))
-    np.save(movingPath, sitk.GetArrayViewFromImage(movingImage))
-    np.save(resampledPath, sitk.GetArrayViewFromImage(movingImageResampled))
+    # np.save(fixedPath, sitk.GetArrayViewFromImage(fixedImage))
+    # np.save(movingPath, sitk.GetArrayViewFromImage(movingImage))
+    # np.save(resampledPath, sitk.GetArrayViewFromImage(movingImageResampled))
+    np.savez(imagePath, movingImage=sitk.GetArrayFromImage(movingImage)[0, ...],
+             fixedImage=sitk.GetArrayFromImage(fixedImage)[0, ...],
+             movingInitialImage=sitk.GetArrayFromImage(movingInitialImage)[0, ...],
+             movingFinalImage=sitk.GetArrayFromImage(movingFinalImage)[0, ...])
+
     np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
              shrinkFactors=shrink_factors, smoothingSigmas=smoothing_sigmas)
     np.savez(errorsPath, errorValues=error_values, meanValues=mean_values, stdValues=std_values,
              minValues=min_values, maxValues=max_values)
-    np.savez(pointsPath, fixedPoints=fixedPoints, movingPoints=movingPoints,
+    np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
              movingInitialPoints=movingInitialPoints, movingFinalPoints=movingFinalPoints)
-
+    print(f"Saved to {patientDir}")
+    print("Finished...")
 
 if __name__ == "__main__":
-    global metric_values, multires_iterations
-    global min_values, max_values, mean_values, std_values, error_values
-    global current_iteration
 
     if len(sys.argv[1:]) == 4:
         patientNumber = sys.argv[1]
@@ -207,5 +211,6 @@ if __name__ == "__main__":
               "argument 4: multires level - 2, 3, ...\n")
         sys.exit(1)
 
-    inputDir = os.path.join(os.getcwd(), f"input_files\\pacient_{patientNumber}\\")
+    inputDir = os.path.join(os.getcwd(), f"input_files\\pacient_{patientNumber}\\registration\\")
     runMain()
+
