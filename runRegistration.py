@@ -84,6 +84,7 @@ def getPoints(path):
         [pointList.append(line.split(",")[1:4]) for line in pointsFile.readlines()[1:]]
         return [[float(coords) for coords in sublist] for sublist in pointList]
 
+
 def runMain():
     global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
         current_iteration
@@ -152,7 +153,7 @@ def runMain():
     final_iter = registration.GetOptimizerIteration()
     print("Resampling transformed image...")
     movingFinalImage = sitk.Resample(movingImage, fixedImage, finalTransform,
-                                         sitk.sitkLinear, 0.0, movingImage.GetPixelID())
+                                     sitk.sitkLinear, 0.0, movingImage.GetPixelID())
 
     finalTransformInverse = finalTransform.GetInverse()
     movingFinalPoints = [finalTransformInverse.TransformPoint(p) for p in movingPoints]
@@ -196,6 +197,7 @@ def runMain():
     print(f"Saved to {patientDir}")
     print("Finished...")
 
+
 if __name__ == "__main__":
 
     if len(sys.argv[1:]) == 4:
@@ -213,4 +215,3 @@ if __name__ == "__main__":
 
     inputDir = os.path.join(os.getcwd(), f"input_files\\pacient_{patientNumber}\\registration\\")
     runMain()
-
