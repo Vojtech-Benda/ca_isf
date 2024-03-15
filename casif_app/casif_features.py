@@ -45,6 +45,9 @@ def generate_drr(ct_volume: sitk.Image,
     ct_spacing = itk_volume.GetSpacing()
     ct_size = itk_volume.GetLargestPossibleRegion().GetSize()
 
+    # ct_center = ct_volume.TransformIndexToPhysicalPoint((ct_size[0] // 2,
+    #                                                      ct_size[1] // 2,
+    #                                                      ct_size[2] // 2))
     ct_center = (ct_origin[0] + (ct_size[0] / 2.0) * ct_spacing[0],
                  ct_origin[1] + (ct_size[1] / 2.0) * ct_spacing[1],
                  ct_origin[2] + (ct_size[2] / 2.0) * ct_spacing[2])
@@ -87,7 +90,7 @@ def generate_drr(ct_volume: sitk.Image,
 
     drr_origin = (ct_origin[0],
                   ct_origin[1],
-                  ct_origin[2] + (ct_size[1] * ct_spacing[1]) - 50)
+                  ct_origin[2] + (ct_size[1] * ct_spacing[1]) - 50) #  + (ct_size[1] * ct_spacing[1]) - 50
 
     image_filter.SetSize(drr_image_size)
     image_filter.SetOutputSpacing(drr_spacing)

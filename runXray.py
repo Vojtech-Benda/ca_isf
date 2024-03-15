@@ -7,7 +7,7 @@ from gvxrPython3.utils import plotScreenshot
 import matplotlib.pyplot as plt
 
 def runSim(patientNumber, view):
-    inputMeshPath = f"input_files\\pacient_{patientNumber}\\pacient{patientNumber}PanevMesh.stl"
+    inputMeshPath = f"input_files\\pacient_{patientNumber}\\stl\\pacient{patientNumber}PanevMesh.stl"
 
     gvxr.createOpenGLContext()
     gvxr.setSourcePosition(0., -1000., 0., "mm")
