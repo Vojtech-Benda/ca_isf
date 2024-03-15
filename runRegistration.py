@@ -1,3 +1,5 @@
+import time
+
 import SimpleITK as sitk
 import numpy as np
 import os
@@ -89,6 +91,8 @@ def runMain():
     global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
         current_iteration
 
+    if not os.path.exists(inputDir):
+        os.makedirs(inputDir)
     print("Loading files...")
     preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop{view.upper()}.mha")
     intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}.mha")
@@ -132,23 +136,29 @@ def runMain():
     registration.AddCommand(sitk.sitkIterationEvent, lambda: getMetricAndErrors(registration,
                                                                                 fixedPoints,
                                                                                 movingPoints))
-    shrink_factors = []
-    smoothing_sigmas = []
+    shrinkFactor = []
+    smoothSigmas = []
     if multiresLevel > 1:
         print(f"Registering with multiresolution level {multiresLevel}")
 
-        shrink_factors = [shrink for shrink in range(2, (2 * multiresLevel), 2)]
-        shrink_factors.insert(0, 1)
-        smoothing_sigmas = [smooth for smooth in range(0, multiresLevel, 1)]
+        levels = 3
+        shrinkFactor = [2 ** factor for factor in range(0, levels)][::-1]
+        smoothSigmas = [factor for factor in range(0, levels)][::-1]
 
-        registration.SetShrinkFactorsPerLevel(shrinkFactors=shrink_factors[::-1])
-        registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothing_sigmas[::-1])
+        registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
+        registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothSigmas)
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
 
-    if regOptim == "gradient":
-        finalTransform = runGradientDescent(registration, fixedImage, movingImage)
-    else:
-        pass
+    start_time = time.time()
+    match regOptim:
+        case "gradient":
+            finalTransform = runGradientDescent(registration, fixedImage, movingImage)
+        case "reg":
+            pass
+        case "reg":
+            pass
+    exec_time = time.time() - start_time
+    print(f"Doba registrace: {exec_time}")
 
     final_iter = registration.GetOptimizerIteration()
     print("Resampling transformed image...")
@@ -158,14 +168,14 @@ def runMain():
     finalTransformInverse = finalTransform.GetInverse()
     movingFinalPoints = [finalTransformInverse.TransformPoint(p) for p in movingPoints]
 
-    (pre_mean_error, pre_std_error, pre_min_error,
-     pre_max_error, pre_error) = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
-
-    (initial_mean_error, initial_std_error, initial_min_error,
-     initial_max_error, initial_error) = getRegistrationErrors(initialTransform, fixedPoints, movingPoints)
-
-    (final_mean_error, final_std_error, final_min_error,
-     final_max_error, final_error) = getRegistrationErrors(finalTransform, fixedPoints, movingPoints)
+    # (pre_mean_error, pre_std_error, pre_min_error,
+    #  pre_max_error, pre_error) = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
+    #
+    # (initial_mean_error, initial_std_error, initial_min_error,
+    #  initial_max_error, initial_error) = getRegistrationErrors(initialTransform, fixedPoints, movingPoints)
+    #
+    # (final_mean_error, final_std_error, final_min_error,
+    #  final_max_error, final_error) = getRegistrationErrors(finalTransform, fixedPoints, movingPoints)
 
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
     if not os.path.exists(patientDir):
@@ -189,7 +199,7 @@ def runMain():
              movingFinalImage=sitk.GetArrayFromImage(movingFinalImage)[0, ...])
 
     np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
-             shrinkFactors=shrink_factors, smoothingSigmas=smoothing_sigmas)
+             shrinkFactors=shrinkFactor, smoothingSigmas=smoothSigmas, execTime=exec_time)
     np.savez(errorsPath, errorValues=error_values, meanValues=mean_values, stdValues=std_values,
              minValues=min_values, maxValues=max_values)
     np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
