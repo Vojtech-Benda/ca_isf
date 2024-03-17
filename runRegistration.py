@@ -98,8 +98,8 @@ def runMain():
     intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}.mha")
 
     print(preopDrrPath, intraopDrrPath)
-    movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32)
-    fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32)
+    movingImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32)
+    fixedImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32)
 
     fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}FixedPoints{view.upper()}.csv"))
     movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}MovingPoints{view.upper()}.csv"))
