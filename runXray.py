@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 def runSim(patientNumber, view):
     inputMeshPath = f"input_files\\pacient_{patientNumber}\\stl\\pacient{patientNumber}PanevMesh.stl"
+    inputPinPath = f"input_files\\pacient_{patientNumber}\\stl\\pacient{patientNumber}Zavadec.stl"
 
     gvxr.createOpenGLContext()
     gvxr.setSourcePosition(0., -1000., 0., "mm")
@@ -23,6 +24,7 @@ def runSim(patientNumber, view):
     gvxr.setScintillator("CsI", 600, "um")
 
     gvxr.loadMeshFile("panev", inputMeshPath, "mm")
+    gvxr.loadMeshFile("pin", inputPinPath, "mm")
 
     rotationAngle = 0.0
     xVector = yVector = zVector = 0.0
@@ -46,35 +48,46 @@ def runSim(patientNumber, view):
         gvxr.rotateNode("panev", rotationAngle, xVector, yVector, zVector)
     # gvxr.scaleNode()
     # minX, minY, minZ, maxX, maxY, maxZ = gvxr.getNodeAndChildrenBoundingBox("panev", "mm")
-    minX, minY, minZ, maxX, maxY, maxZ = gvxr.getNodeAndChildrenBoundingBox("panev", "mm")
-
-    centerX = (minX + maxX) / 2.
-    centerY = (minY + maxY) / 2.
-    centerZ = (minZ + maxZ) / 2.
-    gvxr.translateNode("panev", -centerX, -centerY, -centerZ, "mm")
+    # minX, minY, minZ, maxX, maxY, maxZ = gvxr.getNodeAndChildrenBoundingBox("panev", "mm")
+    #
+    # centerX = (minX + maxX) / 2.
+    # centerY = (minY + maxY) / 2.
+    # centerZ = (minZ + maxZ) / 2.
+    # gvxr.translateNode("panev", -centerX, -centerY, -centerZ, "mm")
 
     # gvxr.translateNode("panev", -centerX, -centerY, -centerZ, "mm")
 
-    gvxr.moveToCenter("panev")
+    gvxr.moveToCenter()
     gvxr.setMixture("panev", [1, 6, 7, 8, 11, 12, 15, 16, 20],
                     [0.034, 0.155, 0.042, 0.435, 0.001, 0.002, 0.103, 0.003, 0.225])
     gvxr.setDensity("panev", 1.920, "g/cm3")
+    gvxr.setCompound("pin", "FeCrNi")
+    gvxr.setDensity("pin", 9.01, "g/cm3")
 
     xrayImage = np.array(gvxr.computeXRayImage()).astype(np.float32)
-    xrayImageFlipped = np.fliplr(xrayImage)
-    xrayImageReshaped = np.reshape(xrayImageFlipped, (1, 1000, 1000))
-    imageInverse = sitk.InvertIntensity(sitk.GetImageFromArray(xrayImageReshaped), maximum=1)
-    imageInverse.SetOrigin((0., 0., 0.))
 
-    print(imageInverse.GetOrigin(), imageInverse.GetDirection(), imageInverse.GetSpacing())
-    plt.imshow(sitk.GetArrayViewFromImage(imageInverse)[0, ...], cmap="gray")
+    totalEnergyInMeV = gvxr.getTotalEnergyWithDetectorResponse()
+    white = np.ones(xrayImage.shape) * totalEnergyInMeV
+    dark = np.zeros(xrayImage.shape)
+    xrayImageFlat = (xrayImage - dark) / (white - dark)
+
+    xrayImageFlipped = -np.log(np.fliplr(xrayImageFlat))
+    xrayImageReshaped = np.reshape(xrayImageFlipped, (1, 1000, 1000))
+    xraySitkImage = sitk.GetImageFromArray(xrayImageReshaped)
+    xraySitkImage.SetOrigin((0., 0., 0.))
+
+    xraySitkImageExp = sitk.Expand(xraySitkImage, (1, 1, 4))
+
+    print(xraySitkImageExp.GetOrigin(), xraySitkImageExp.GetDirection(),
+          xraySitkImageExp.GetSpacing(), xraySitkImageExp.GetSize())
+    plt.imshow(xrayImageFlipped, cmap="gray")
     plt.show()
 
     outputImagePath = os.path.join(os.getcwd(),
-                                   f"input_files\\pacient_{patientNumber}\\registration\\pacient{patientNumber}Intraop"
+                                   f"input_files\\pacient_{patientNumber}\\registration\\pacient{patientNumber}Preop"
                                    f"{view.upper()}.mha")
-    sitk.WriteImage(imageInverse, outputImagePath)
-    plotScreenshot()
+    sitk.WriteImage(xraySitkImageExp, outputImagePath)
+    # gvxr.renderLoop()
 
 if __name__ == "__main__":
     patienNum = sys.argv[1]
