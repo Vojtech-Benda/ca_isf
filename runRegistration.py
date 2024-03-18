@@ -26,8 +26,8 @@ def getMetricAndErrorsEnd():
 
 
 def getMetricAndErrors(registration_method, fixed_points, moving_points):
-    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
-        current_iteration
+    global metric_values, multires_iterations, min_values, max_values, \
+        mean_values, std_values, error_values, current_iteration
 
     if registration_method.GetOptimizerIteration() == current_iteration:
         return
@@ -59,9 +59,9 @@ def updateMultiresIterations():
 
 def getRegistrationErrors(transform, fixed_points, moving_points):
     inverseTransform = transform.GetInverse()
-    transformed_points = [inverseTransform.TransformPoint(p) for p in moving_points]
+    transformed_points = [transform.TransformPoint(p) for p in fixed_points] # inverseTransform
     errors = [np.linalg.norm(np.array(p_fixed) - np.array(p_moving))
-              for p_fixed, p_moving in zip(fixed_points, transformed_points)]
+              for p_fixed, p_moving in zip(transformed_points, moving_points)]
 
     return np.mean(errors), np.std(errors), np.min(errors), np.max(errors), errors
 
@@ -123,7 +123,8 @@ def runMain():
                                        movingImage.GetPixelID())
 
     initialTransformInverse = initialTransform.GetInverse()
-    movingInitialPoints = [initialTransformInverse.TransformPoint(p) for p in movingPoints]
+    movingInitialPoints = [initialTransformInverse.TransformPoint(p) for p in movingPoints] # initialTransformInverse,
+    # movingPoints
 
     registration = sitk.ImageRegistrationMethod()
     registration.SetMetricAsMattesMutualInformation()
@@ -158,7 +159,7 @@ def runMain():
         case "reg":
             pass
     exec_time = time.time() - start_time
-    print(f"Doba registrace: {exec_time}")
+    print(f"Registration time: {exec_time:.3f} seconds")
 
     final_iter = registration.GetOptimizerIteration()
     print("Resampling transformed image...")
@@ -168,15 +169,9 @@ def runMain():
     finalTransformInverse = finalTransform.GetInverse()
     movingFinalPoints = [finalTransformInverse.TransformPoint(p) for p in movingPoints]
 
-    # (pre_mean_error, pre_std_error, pre_min_error,
-    #  pre_max_error, pre_error) = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
-    #
-    # (initial_mean_error, initial_std_error, initial_min_error,
-    #  initial_max_error, initial_error) = getRegistrationErrors(initialTransform, fixedPoints, movingPoints)
-    #
-    # (final_mean_error, final_std_error, final_min_error,
-    #  final_max_error, final_error) = getRegistrationErrors(finalTransform, fixedPoints, movingPoints)
+    _, _, _, _, pre_error = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
 
+    error_values = np.insert(error_values, 0, pre_error, axis=0)
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
     if not os.path.exists(patientDir):
         os.makedirs(patientDir)
