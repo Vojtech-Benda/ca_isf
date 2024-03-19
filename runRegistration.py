@@ -98,11 +98,11 @@ def runMain():
     intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}.mha")
 
     print(preopDrrPath, intraopDrrPath)
-    movingImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32)
-    fixedImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32)
+    movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32) # preop image
+    fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32) # intraop image
 
-    fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}FixedPoints{view.upper()}.csv"))
-    movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}MovingPoints{view.upper()}.csv"))
+    movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}PreopPoints{view.upper()}.csv"))
+    fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}IntraopPoints{view.upper()}.csv"))
 
     # intraopImageInverted = sitk.InvertIntensity(intraopImage, maximum=1)
     print(f"moving: {movingImage.GetSize()}, fixed: {fixedImage.GetSize()}")
@@ -133,7 +133,7 @@ def runMain():
     registration.SetInterpolator(sitk.sitkLinear)
     registration.AddCommand(sitk.sitkStartEvent, getMetricAndErrorsStart)
     registration.AddCommand(sitk.sitkEndEvent, getMetricAndErrorsEnd)
-    registration.AddCommand(sitk.sitkMultiResolutionIterationEvent, updateMultiresIterations)
+    # registration.AddCommand(sitk.sitkMultiResolutionIterationEvent, updateMultiresIterations)
     registration.AddCommand(sitk.sitkIterationEvent, lambda: getMetricAndErrors(registration,
                                                                                 fixedPoints,
                                                                                 movingPoints))
@@ -142,13 +142,14 @@ def runMain():
     if multiresLevel > 1:
         print(f"Registering with multiresolution level {multiresLevel}")
 
-        levels = 3
+        levels = multiresLevel
         shrinkFactor = [2 ** factor for factor in range(0, levels)][::-1]
         smoothSigmas = [factor for factor in range(0, levels)][::-1]
 
         registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
         registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothSigmas)
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+        registration.AddCommand(sitk.sitkMultiResolutionIterationEvent, updateMultiresIterations)
 
     start_time = time.time()
     match regOptim:
@@ -171,6 +172,7 @@ def runMain():
 
     _, _, _, _, pre_error = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
 
+    print(f"Mean error values: {mean_values[0], mean_values[-1]}")
     error_values = np.insert(error_values, 0, pre_error, axis=0)
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
     if not os.path.exists(patientDir):
