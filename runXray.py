@@ -62,7 +62,7 @@ def runSim(patientNumber, view):
                     [0.034, 0.155, 0.042, 0.435, 0.001, 0.002, 0.103, 0.003, 0.225])
     gvxr.setDensity("panev", 1.920, "g/cm3")
     gvxr.setCompound("pin", "FeCrNi")
-    gvxr.setDensity("pin", 9.01, "g/cm3")
+    gvxr.setDensity("pin", 8.01, "g/cm3") # 316L medical grade stainless steel density
 
     xrayImage = np.array(gvxr.computeXRayImage()).astype(np.float32)
 
