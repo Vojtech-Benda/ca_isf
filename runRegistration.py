@@ -83,17 +83,6 @@ def getRegistrationErrors(transform, fixed_points, moving_points):
     return np.mean(errors), np.std(errors), np.min(errors), np.max(errors), errors
 
 
-def runGradientDescent(reg_method, fixed_image, moving_image):
-    reg_method.SetOptimizerAsGradientDescent(learningRate=1.0,
-                                             numberOfIterations=200,
-                                             convergenceMinimumValue=1e-5,
-                                             convergenceWindowSize=5)
-
-    final_transform = reg_method.Execute(fixed_image, moving_image)
-
-    return final_transform
-
-
 def getPoints(path):
     pointList = []
     with open(path, "r") as pointsFile:
@@ -174,13 +163,11 @@ def runMain():
     start_time = time.time()
     match regOptim:
         case "gradient":
-            # finalTransform = runGradientDescent(registration, fixedImage, movingImage)
             registration.SetOptimizerAsGradientDescent(learningRate=1.0,
                                                      numberOfIterations=200,
                                                      convergenceMinimumValue=1e-5,
                                                      convergenceWindowSize=5)
 
-            # finalTransform = registration.Execute(fixedImage, movingImage)
 
         case "gradientline":
             registration.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
