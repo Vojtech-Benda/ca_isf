@@ -176,7 +176,11 @@ def runMain():
                                                                  convergenceWindowSize=5,
                                                                  lineSearchMaximumIterations=10)
         case "gradientlbf":
-            registration.SetOptimizerAsLBFGS2(numberOfIterations=20)
+            registration.SetOptimizerAsLBFGS2(numberOfIterations=30,
+                                              hessianApproximateAccuracy=4,
+                                              lineSearchAccuracy=1e-4,
+                                              lineSearchMinimumStep=1e-20,
+                                              lineSearchMaximumStep=1e20)
         case _:
             print("Wrong optimizer, allowed types are gradient, gradientline, gradientlbf")
             return
