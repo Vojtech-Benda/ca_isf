@@ -98,7 +98,7 @@ def runMain():
         os.makedirs(inputDir)
     print("Loading files...")
     preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop{view.upper()}.mha")
-    intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}.mha")
+    intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}ST.mha")
 
     print(preopDrrPath, intraopDrrPath)
     movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32) # preop image
@@ -172,9 +172,9 @@ def runMain():
         case "gradientline":
             registration.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
                                                                  numberOfIterations=15,
-                                                                 convergenceMinimumValue=1e-1,
+                                                                 convergenceMinimumValue=1e-5,
                                                                  convergenceWindowSize=5,
-                                                                 lineSearchMaximumIterations=10)
+                                                                 lineSearchMaximumIterations=4)
         case "gradientlbf":
             registration.SetOptimizerAsLBFGS2(numberOfIterations=30,
                                               hessianApproximateAccuracy=4,
