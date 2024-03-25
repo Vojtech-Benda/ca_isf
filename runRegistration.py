@@ -100,7 +100,7 @@ def runMain():
     preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop{view.upper()}.mha")
     intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}ST.mha")
 
-    print(preopDrrPath, intraopDrrPath)
+    print(f"Moving Image: {preopDrrPath}\nFixed image: {intraopDrrPath}")
     movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32) # preop image
     fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32) # intraop image
 
@@ -151,7 +151,8 @@ def runMain():
     if multiresLevel > 1:
         levels = multiresLevel
         shrinkFactor = [2 * factor for factor in range(1, levels)][::-1]  # 2 ** factor, range(0, levels)
-        smoothSigmas = [factor for factor in range(0, levels - 1)][::-1]  # range(0, levels)
+        shrinkFactor.append(1)
+        smoothSigmas = [factor for factor in range(0, levels)][::-1]  # range(0, levels)
 
         registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
         registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothSigmas)
@@ -183,7 +184,7 @@ def runMain():
             print(f"Optimizer {regOptim} is not recognized,\nallowed types are gradient, gradientline, gradientlbf")
             return
 
-    print(f"Registering with {regOptim} and multiresolution level {multiresLevel}...")
+    print(f"Registering with {regOptim} and multiresolution level {multiresLevel}: {shrinkFactor, smoothSigmas}...")
 
     try:
         finalTransform = registration.Execute(fixedImage, movingImage)
