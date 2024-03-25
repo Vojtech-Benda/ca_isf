@@ -150,15 +150,13 @@ def runMain():
     smoothSigmas = []
     if multiresLevel > 1:
         levels = multiresLevel
-        shrinkFactor = [2 ** factor for factor in range(0, levels)][::-1]
-        smoothSigmas = [factor for factor in range(0, levels)][::-1]
+        shrinkFactor = [2 * factor for factor in range(1, levels)][::-1]  # 2 ** factor, range(0, levels)
+        smoothSigmas = [factor for factor in range(0, levels - 1)][::-1]  # range(0, levels)
 
         registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
         registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothSigmas)
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
         registration.AddCommand(sitk.sitkMultiResolutionIterationEvent, updateMultiresIterations)
-
-        print(f"Registering with {regOptim} and multiresolution level {multiresLevel}...")
 
     start_time = time.time()
     match regOptim:
@@ -182,8 +180,10 @@ def runMain():
                                               lineSearchMinimumStep=1e-20,
                                               lineSearchMaximumStep=1e20)
         case _:
-            print("Wrong optimizer, allowed types are gradient, gradientline, gradientlbf")
+            print(f"Optimizer {regOptim} is not recognized,\nallowed types are gradient, gradientline, gradientlbf")
             return
+
+    print(f"Registering with {regOptim} and multiresolution level {multiresLevel}...")
 
     try:
         finalTransform = registration.Execute(fixedImage, movingImage)
