@@ -6,12 +6,12 @@ import os
 import sys
 
 def getMetricAndErrorsStart():
-    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+    global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
         current_iteration
 
     metric_values = []
     multires_iterations = []
-    mean_values = []
+    median_values = []
     min_values = []
     max_values = []
     std_values = []
@@ -20,7 +20,7 @@ def getMetricAndErrorsStart():
 
 
 def getMetricAndErrorsEnd(registration_method, fixed_points, moving_points):
-    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+    global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
         current_iteration
 
     current_iteration = registration_method.GetOptimizerIteration()
@@ -31,11 +31,11 @@ def getMetricAndErrorsEnd(registration_method, fixed_points, moving_points):
     current_transform.AddTransform(registration_method.GetMovingInitialTransform())
     current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
 
-    mean_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
+    median_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
                                                                                fixed_points,
                                                                                moving_points)
 
-    mean_values.append(mean_error)
+    median_values.append(median_error)
     min_values.append(min_error)
     max_values.append(max_error)
     std_values.append(std_error)
@@ -44,7 +44,7 @@ def getMetricAndErrorsEnd(registration_method, fixed_points, moving_points):
 
 def getMetricAndErrors(registration_method, fixed_points, moving_points):
     global metric_values, multires_iterations, min_values, max_values, \
-        mean_values, std_values, error_values, current_iteration
+        median_values, std_values, error_values, current_iteration
 
     if registration_method.GetOptimizerIteration() == current_iteration:
         return
@@ -57,11 +57,11 @@ def getMetricAndErrors(registration_method, fixed_points, moving_points):
     current_transform.AddTransform(registration_method.GetMovingInitialTransform())
     current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
 
-    mean_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
+    median_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
                                                                                fixed_points,
                                                                                moving_points)
 
-    mean_values.append(mean_error)
+    median_values.append(median_error)
     min_values.append(min_error)
     max_values.append(max_error)
     std_values.append(std_error)
@@ -80,7 +80,7 @@ def getRegistrationErrors(transform, fixed_points, moving_points):
     errors = [np.linalg.norm(np.array(p_fixed) - np.array(p_moving))
               for p_fixed, p_moving in zip(transformed_points, moving_points)]
 
-    return np.mean(errors), np.std(errors), np.min(errors), np.max(errors), errors
+    return np.median(errors), np.std(errors), np.min(errors), np.max(errors), errors
 
 
 def getPoints(path):
@@ -91,7 +91,7 @@ def getPoints(path):
 
 
 def runMain():
-    global metric_values, multires_iterations, min_values, max_values, mean_values, std_values, error_values, \
+    global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
         current_iteration
 
     if not os.path.exists(inputDir): # create registration directory if there isn't
@@ -179,7 +179,8 @@ def runMain():
                                               hessianApproximateAccuracy=4,
                                               lineSearchAccuracy=1e-4,
                                               lineSearchMinimumStep=1e-20,
-                                              lineSearchMaximumStep=1e20)
+                                              lineSearchMaximumStep=1e20,
+                                              lineSearchMaximumEvaluations=5)
         case _:
             print(f"Optimizer {regOptim} is not recognized,\nallowed types are gradient, gradientline, gradientlbf")
             return
@@ -212,7 +213,7 @@ def runMain():
     # # get errors before initialization
     # _, _, _, _, pre_error = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
 
-    print(f"Mean error values before, after: {mean_values[0], mean_values[-1]}")
+    print(f"median error values before, after: {median_values[0], median_values[-1]}")
     error_values = np.insert(error_values, 0, pre_error, axis=0)
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
 
@@ -232,7 +233,7 @@ def runMain():
 
     np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
              shrinkFactors=shrinkFactor, smoothingSigmas=smoothSigmas, execTime=exec_time)
-    np.savez(errorsPath, errorValues=error_values, meanValues=mean_values, stdValues=std_values,
+    np.savez(errorsPath, errorValues=error_values, medianValues=median_values, stdValues=std_values,
              minValues=min_values, maxValues=max_values)
     np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
              movingInitialPoints=movingInitialPoints, movingFinalPoints=movingFinalPoints)
