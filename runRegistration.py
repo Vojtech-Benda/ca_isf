@@ -4,6 +4,8 @@ import SimpleITK as sitk
 import numpy as np
 import os
 import sys
+import matplotlib.pyplot as plt
+
 
 def getMetricAndErrorsStart():
     global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
@@ -29,7 +31,7 @@ def getMetricAndErrorsEnd(registration_method, fixed_points, moving_points):
     current_transform = sitk.CompositeTransform(registration_method.GetInitialTransform())
     current_transform.SetParameters(registration_method.GetOptimizerPosition())
     current_transform.AddTransform(registration_method.GetMovingInitialTransform())
-    current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
+    # current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
 
     median_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
                                                                                fixed_points,
@@ -42,7 +44,7 @@ def getMetricAndErrorsEnd(registration_method, fixed_points, moving_points):
     error_values.append(error)
 
 
-def getMetricAndErrors(registration_method, fixed_points, moving_points):
+def getMetricAndErrors(registration_method, fixed_points, moving_points, moving_image, fixed_image):
     global metric_values, multires_iterations, min_values, max_values, \
         median_values, std_values, error_values, current_iteration
 
@@ -55,7 +57,7 @@ def getMetricAndErrors(registration_method, fixed_points, moving_points):
     current_transform = sitk.CompositeTransform(registration_method.GetInitialTransform())
     current_transform.SetParameters(registration_method.GetOptimizerPosition())
     current_transform.AddTransform(registration_method.GetMovingInitialTransform())
-    current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
+    # current_transform.AddTransform(registration_method.GetFixedInitialTransform().GetInverse())
 
     median_error, std_error, min_error, max_error, error = getRegistrationErrors(current_transform,
                                                                                fixed_points,
@@ -94,31 +96,35 @@ def runMain():
     global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
         current_iteration
 
-    if not os.path.exists(inputDir): # create registration directory if there isn't
+    # create registration directory if there isn't
+    if not os.path.exists(inputDir):
         os.makedirs(inputDir)
+
     print("Loading files...")
-    preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop{view.upper()}.mha")
-    intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Intraop{view.upper()}ST.mha")
+    preopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}Preop.mha")
+    intraopDrrPath = os.path.join(inputDir, f"pacient{patientNumber}IntraopST.mha")
 
     print(f"Moving Image: {preopDrrPath}\nFixed image: {intraopDrrPath}")
+    # load images
     movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32) # preop image
     fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32) # intraop image
+    movingImage = movingImage[..., 0]
 
-    movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}PreopPoints{view.upper()}.csv"))
-    fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}IntraopPoints{view.upper()}.csv"))
+    # load points
+    movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}PreopPoints.csv"))
+    fixedPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}IntraopPoints.csv"))
+    movingPoints = [sublist[:-1] for sublist in movingPoints]
+    fixedPoints = [sublist[:-1] for sublist in fixedPoints]
 
     print(f"Fixed image, spacing: {fixedImage.GetSpacing()}, size: {fixedImage.GetSize()}, "
           f"direction: {fixedImage.GetDirection()}, origin: {fixedImage.GetOrigin()}")
     print(f"Moving image, spacing: {movingImage.GetSpacing()}, size: {movingImage.GetSize()}, "
           f"direction: {movingImage.GetDirection()}, origin: {movingImage.GetOrigin()}")
 
-    # get errors before initialization
-    _, _, _, _, pre_error = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
-
     print("Initializing images...")
-    # initialization to center images
+    # initialization to center image centroids -> better results
     initialTransform = sitk.CenteredTransformInitializer(fixedImage, movingImage,
-                                                         sitk.AffineTransform(3),
+                                                         sitk.AffineTransform(2),
                                                          sitk.CenteredTransformInitializerFilter.MOMENTS)
 
     # get resampled moving image with initial transform
@@ -135,52 +141,63 @@ def runMain():
     registration.SetOptimizerScalesFromPhysicalShift()
     registration.SetMetricSamplingStrategy(sitk.ImageRegistrationMethod.NONE)
     registration.SetMetricSamplingPercentage(percentage=0.01, seed=42) # disable randomisation -> reproducible results
-    registration.SetInitialTransform(initialTransform)
     registration.SetInterpolator(sitk.sitkLinear)
+
+    # optimized transform for ITKv4 registration framework
+    optimizedTransform = sitk.AffineTransform(2)
+    registration.SetMovingInitialTransform(initialTransform)
+    registration.SetInitialTransform(optimizedTransform)
 
     # set up observers
     registration.AddCommand(sitk.sitkStartEvent, getMetricAndErrorsStart)
     registration.AddCommand(sitk.sitkEndEvent, lambda: getMetricAndErrorsEnd(registration,
-                                                                             fixedPoints, movingPoints))
+                                                                                   fixedPoints,
+                                                                                   movingPoints))
     registration.AddCommand(sitk.sitkIterationEvent, lambda: getMetricAndErrors(registration,
-                                                                                fixedPoints,
-                                                                                movingPoints))
+                                                                                      fixedPoints,
+                                                                                      movingPoints,
+                                                                                      movingImage,
+                                                                                      fixedImage))
     # set up multiresolution pyramid
     shrinkFactor = []
     smoothSigmas = []
     if multiresLevel > 1:
         levels = multiresLevel
-        shrinkFactor = [2 * factor for factor in range(1, levels)][::-1]  # 2 ** factor, range(0, levels)
-        shrinkFactor.append(1)
+        shrinkFactor = [2 * factor for factor in range(0, levels)][::-1]  # 2 ** factor, range(0, levels)
+        shrinkFactor[-1] = 1
         smoothSigmas = [factor for factor in range(0, levels)][::-1]  # range(0, levels)
+        #smoothSigmas = [(factor / 2) for factor in shrinkFactor]  # range(0, levels)
 
         registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
         registration.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothSigmas)
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
         registration.AddCommand(sitk.sitkMultiResolutionIterationEvent, updateMultiresIterations)
 
-    start_time = time.time()
     match regOptim:
         case "gradient":
             registration.SetOptimizerAsGradientDescent(learningRate=1.0,
-                                                     numberOfIterations=200,
-                                                     convergenceMinimumValue=1e-5,
-                                                     convergenceWindowSize=5)
-
+                                                       numberOfIterations=100,
+                                                       convergenceMinimumValue=1e-5,
+                                                       convergenceWindowSize=5,
+                                                       estimateLearningRate=sitk.ImageRegistrationMethod.EachIteration)
 
         case "gradientline":
             registration.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
                                                                  numberOfIterations=15,
                                                                  convergenceMinimumValue=1e-5,
                                                                  convergenceWindowSize=5,
-                                                                 lineSearchMaximumIterations=4)
+                                                                 lineSearchMaximumIterations=3,
+                                                                 lineSearchEpsilon=0.1,
+                                                                 lineSearchLowerLimit=0.0,
+                                                                 lineSearchUpperLimit=3.0,
+                                                                 estimateLearningRate=sitk.ImageRegistrationMethod.EachIteration)
         case "gradientlbf":
             registration.SetOptimizerAsLBFGS2(numberOfIterations=30,
-                                              hessianApproximateAccuracy=4,
+                                              hessianApproximateAccuracy=3,
                                               lineSearchAccuracy=1e-4,
                                               lineSearchMinimumStep=1e-20,
                                               lineSearchMaximumStep=1e20,
-                                              lineSearchMaximumEvaluations=5)
+                                              lineSearchMaximumEvaluations=10)
         case _:
             print(f"Optimizer {regOptim} is not recognized,\nallowed types are gradient, gradientline, gradientlbf")
             return
@@ -188,15 +205,18 @@ def runMain():
     print(f"Registering with {regOptim} and multiresolution level {multiresLevel}: {shrinkFactor, smoothSigmas}...")
 
     try:
-        finalTransform = registration.Execute(fixedImage, movingImage)
+        start_time = time.time()
+        registration.Execute(fixedImage, movingImage)
+        exec_time = time.time() - start_time
     except RuntimeError as runtimeError:
         print(runtimeError)
         return
 
-    exec_time = time.time() - start_time
+    finalTransform = sitk.CompositeTransform([optimizedTransform, initialTransform])
+
     print(f"Optimizer stop condition: {registration.GetOptimizerStopConditionDescription()}")
     print(f" Iteration: {registration.GetOptimizerIteration()}")
-    print(f" Metric value: {registration.GetMetricValue()}")
+    print(f" Metric value: {registration.GetMetricValue():.3f}")
     print(f"Registration time: {exec_time:.3f} seconds")
 
     final_iter = registration.GetOptimizerIteration()
@@ -210,31 +230,71 @@ def runMain():
     finalTransformInverse = finalTransform.GetInverse()
     movingFinalPoints = [finalTransformInverse.TransformPoint(p) for p in movingPoints]
 
-    # # get errors before initialization
-    # _, _, _, _, pre_error = getRegistrationErrors(sitk.Transform(), fixedPoints, movingPoints)
+    # get errors before initialization
+    (pre_median, pre_std,
+     pre_min, pre_max, pre_errors) = getRegistrationErrors(sitk.Transform(2, sitk.sitkIdentity),
+                                                           fixedPoints,
+                                                           movingPoints)
+    # get errors after initialization
+    (initial_median, initial_std,
+     initial_min, initial_max, initial_errors) = getRegistrationErrors(sitk.Transform(2, sitk.sitkIdentity),
+                                                                       fixedPoints,
+                                                                       movingInitialPoints)
+    # get errors after registration
+    (final_median, final_std,
+     final_min, finall_max, final_errors) = getRegistrationErrors(sitk.Transform(2, sitk.sitkIdentity),
+                                                                  fixedPoints,
+                                                                  movingFinalPoints)
 
-    print(f"median error values before, after: {median_values[0], median_values[-1]}")
-    error_values = np.insert(error_values, 0, pre_error, axis=0)
+    print(f"median errors pre, initial, final: {pre_median:.3f}, {initial_median:.3f}, {final_median:.3f}")
+    """
+    plt.imshow(sitk.GetArrayViewFromImage(movingInitialImage), cmap="gray")
+    plt.imshow(sitk.GetArrayViewFromImage(fixedImage), cmap="gray", alpha=0.5)
+    plt.scatter(list(np.array(fixedPoints).T)[0], list(np.array(fixedPoints).T)[1],
+                c="#1f77b4", label="fixed", s=20)
+    plt.scatter(list(np.array(movingInitialPoints).T)[0], list(np.array(movingInitialPoints).T)[1],
+                c="#ff7f0e", label="moving", s=20)
+    plt.show()
+    """
+
+    plt.imshow(sitk.GetArrayViewFromImage(movingFinalImage), cmap="gray")
+    plt.imshow(sitk.GetArrayViewFromImage(fixedImage), cmap="gray", alpha=0.5)
+    plt.scatter(list(np.array(fixedPoints).T)[0], list(np.array(fixedPoints).T)[1],
+                c="#1f77b4", label="fixed", s=20)
+    plt.scatter(list(np.array(movingFinalPoints).T)[0], list(np.array(movingFinalPoints).T)[1],
+                c="#ff7f0e", label="moving", s=20)
+    plt.legend()
+    plt.axis("off")
+    plt.show()
+
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
 
     if not os.path.exists(patientDir): # create optimizer directory if there isn't
         os.makedirs(patientDir)
 
     print("Saving images, metrics, errors, points...")
-    imagePath = os.path.join(patientDir, f"pacient{patientNumber}Images{view.upper()}.npz")
-    metricsPath = os.path.join(patientDir, f"pacient{patientNumber}registrationInfo{view.upper()}.npz")
-    errorsPath = os.path.join(patientDir, f"pacient{patientNumber}ErrorsInfo{view.upper()}.npz")
-    pointsPath = os.path.join(patientDir, f"pacient{patientNumber}PointsInfo{view.upper()}.npz")
+    imagePath = os.path.join(patientDir, f"pacient{patientNumber}Images.npz")
+    metricsPath = os.path.join(patientDir, f"pacient{patientNumber}RegParams.npz")
+    preErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}PreErrors.npz")
+    initialErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}InitialErrors.npz")
+    regErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}RegErrors.npz")
+    pointsPath = os.path.join(patientDir, f"pacient{patientNumber}Points.npz")
 
-    np.savez(imagePath, movingImage=sitk.GetArrayFromImage(movingImage)[0, ...],
-             fixedImage=sitk.GetArrayFromImage(fixedImage)[0, ...],
-             movingInitialImage=sitk.GetArrayFromImage(movingInitialImage)[0, ...],
-             movingFinalImage=sitk.GetArrayFromImage(movingFinalImage)[0, ...])
+    np.savez(imagePath, movingImage=sitk.GetArrayFromImage(movingImage),
+             fixedImage=sitk.GetArrayFromImage(fixedImage),
+             movingInitialImage=sitk.GetArrayFromImage(movingInitialImage),
+             movingFinalImage=sitk.GetArrayFromImage(movingFinalImage))
 
     np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
              shrinkFactors=shrinkFactor, smoothingSigmas=smoothSigmas, execTime=exec_time)
-    np.savez(errorsPath, errorValues=error_values, medianValues=median_values, stdValues=std_values,
-             minValues=min_values, maxValues=max_values)
+
+    np.savez(preErrorsPath, preErrors=pre_errors, preMedians=pre_median, preStds=pre_std,
+             preMins=pre_min, preMaxs=pre_max)
+    np.savez(initialErrorsPath, initialErrors=initial_errors, initialMedians=initial_median, initialStds=initial_std,
+             initialMins=initial_min, initialMaxs=initial_max)
+    np.savez(regErrorsPath, regErrors=error_values, regMedians=median_values, regStds=std_values,
+             regMins=min_values, regMaxs=max_values)
+
     np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
              movingInitialPoints=movingInitialPoints, movingFinalPoints=movingFinalPoints)
     print(f"Saved to {patientDir}")
@@ -243,15 +303,13 @@ def runMain():
 
 if __name__ == "__main__":
 
-    if len(sys.argv[1:]) == 4:
+    if len(sys.argv[1:]) == 3:
         patientNumber = sys.argv[1]
-        view = sys.argv[2]
-        regOptim = sys.argv[3]
-        multiresLevel = int(sys.argv[4])
+        regOptim = sys.argv[2]
+        multiresLevel = int(sys.argv[3])
     else:
         print("File usage:\n"
               "argument 1: patient number - 01, 02, ...\n"
-              "argument 2: view - ap, lat, pi\n"
               "argument 3: optimizer - gradient, gradientline, gradientlbf\n"
               "argument 4: multiressolution level - 2, 3, ...\n")
         sys.exit(1)
