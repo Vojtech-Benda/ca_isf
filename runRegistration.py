@@ -92,6 +92,31 @@ def getPoints(path):
         return [[float(coords) for coords in sublist] for sublist in pointList]
 
 
+def plotRegistrationErrors():
+    figMetric, axMetric = plt.subplots(1, 1)
+    axMetric.plot(np.arange(0, len(metric_values)), metric_values, "#1f77b4")
+    axMetric.plot(multires_iterations, [metric_values[index] for index in multires_iterations], marker="o",
+                  label="Registrační úroveň", linestyle="none",
+                  markeredgecolor="none", markersize=6., c="#ff7f0e")
+    axMetric.set_xlabel("Počet iterací [-]", fontsize=11)
+    axMetric.set_ylabel("Vzájemná informace [-]", fontsize=11)
+    axMetric.legend()
+    axMetric.set_title("Optimalizace podobnostní metriky")
+
+    # Plot the TRE median value and the [min-max] range.
+    figTre, axTre = plt.subplots(1, 1)
+    axTre.plot(median_values, color="black", label="Průměr")
+    axTre.fill_between(range(len(median_values)), min_values, max_values,
+                       facecolor="red", alpha=0.5)
+    axTre.set_xlabel("Počet iterací", fontsize=11)
+    axTre.set_ylabel("Rozdíl vzdáleností (TRE) [mm]", fontsize=11)
+    axTre.set_title("Míra nepřesnosti registrace")
+    axTre.legend()
+
+    # Adjust the spacing between subplots so that the axis labels don't overlap.
+    plt.show()
+
+
 def runMain():
     global metric_values, multires_iterations, min_values, max_values, median_values, std_values, error_values, \
         current_iteration
@@ -109,6 +134,7 @@ def runMain():
     movingImage = sitk.ReadImage(preopDrrPath, sitk.sitkFloat32) # preop image
     fixedImage = sitk.ReadImage(intraopDrrPath, sitk.sitkFloat32) # intraop image
     movingImage = movingImage[..., 0]
+    fixedImage = fixedImage[..., 0]
 
     # load points
     movingPoints = getPoints(os.path.join(inputDir, f"pacient{patientNumber}PreopPoints.csv"))
@@ -163,9 +189,9 @@ def runMain():
     smoothSigmas = []
     if multiresLevel > 1:
         levels = multiresLevel
-        shrinkFactor = [2 * factor for factor in range(0, levels)][::-1]  # 2 ** factor, range(0, levels)
+        shrinkFactor = [4 * factor for factor in range(0, levels)][::-1]  # 2 ** factor, range(0, levels)
         shrinkFactor[-1] = 1
-        smoothSigmas = [factor for factor in range(0, levels)][::-1]  # range(0, levels)
+        smoothSigmas = [3 * factor for factor in range(0, levels)][::-1]  # range(0, levels)
         #smoothSigmas = [(factor / 2) for factor in shrinkFactor]  # range(0, levels)
 
         registration.SetShrinkFactorsPerLevel(shrinkFactors=shrinkFactor)
@@ -177,27 +203,29 @@ def runMain():
         case "gradient":
             registration.SetOptimizerAsGradientDescent(learningRate=1.0,
                                                        numberOfIterations=100,
-                                                       convergenceMinimumValue=1e-5,
-                                                       convergenceWindowSize=5,
-                                                       estimateLearningRate=sitk.ImageRegistrationMethod.EachIteration)
+                                                       convergenceMinimumValue=1e-6,
+                                                       convergenceWindowSize=2,
+                                                       estimateLearningRate=registration.EachIteration)
 
         case "gradientline":
             registration.SetOptimizerAsGradientDescentLineSearch(learningRate=1.0,
                                                                  numberOfIterations=15,
-                                                                 convergenceMinimumValue=1e-5,
-                                                                 convergenceWindowSize=5,
+                                                                 convergenceMinimumValue=1e-4,
+                                                                 convergenceWindowSize=2,
                                                                  lineSearchMaximumIterations=3,
                                                                  lineSearchEpsilon=0.1,
                                                                  lineSearchLowerLimit=0.0,
                                                                  lineSearchUpperLimit=3.0,
-                                                                 estimateLearningRate=sitk.ImageRegistrationMethod.EachIteration)
+                                                                 estimateLearningRate=registration.EachIteration)
         case "gradientlbf":
             registration.SetOptimizerAsLBFGS2(numberOfIterations=30,
-                                              hessianApproximateAccuracy=3,
+                                              hessianApproximateAccuracy=4,
                                               lineSearchAccuracy=1e-4,
                                               lineSearchMinimumStep=1e-20,
                                               lineSearchMaximumStep=1e20,
-                                              lineSearchMaximumEvaluations=10)
+                                              lineSearchMaximumEvaluations=10,
+                                              deltaConvergenceDistance=0,
+                                              deltaConvergenceTolerance=1e-5)
         case _:
             print(f"Optimizer {regOptim} is not recognized,\nallowed types are gradient, gradientline, gradientlbf")
             return
@@ -266,6 +294,8 @@ def runMain():
     plt.legend()
     plt.axis("off")
     plt.show()
+
+    plotRegistrationErrors()
 
     patientDir = os.path.join(inputDir, f"{regOptim}\\")
 
