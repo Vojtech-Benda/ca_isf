@@ -4,14 +4,12 @@ import numpy as np
 
 
 def generate_drr(ct_volume: sitk.Image,
-                 output_view: int = 0,
-                 src_img_dist: float = 1000.0,
-                 output_drr_size: tuple[int, int] = (1000, 1000),
-                 threshold: float = 100,
-                 ct_source_type: str = "preop") -> sitk.Image | None:
+                 drr_settings) -> sitk.Image | None:
+
+    output_view, src_img_dist, output_drr_size, threshold, add_rnd_rotation = drr_settings.values()
+
     itk_volume = convert_image_sitk_to_itk(ct_volume)  # convert sitk image to itk image
     image_filter.SetInput(itk_volume)
-
     rotation_x = -90.  # default angle to get AP and lateral views
     rotation_z = 0.
     random_angle_x = None
@@ -29,13 +27,10 @@ def generate_drr(ct_volume: sitk.Image,
         case 3:  # pelvic inlet view
             rotation_x = -135.
 
-    match ct_source_type:
-        case "intraop":
-            random_angle_x = np.random.normal(0., 1.)  # in degrees
-            random_angle_y = np.random.normal(0., 1.)
-            random_angle_z = np.random.normal(0., 1.)
-        case "preop":
-            random_angle_x = random_angle_y = random_angle_z = 0.
+    if add_rnd_rotation:
+        random_angle_x = np.random.normal(0., 1.)  # in degrees
+        random_angle_y = np.random.normal(0., 1.)
+        random_angle_z = np.random.normal(0., 1.)
 
     transform.SetRotation(np.deg2rad(rotation_x + random_angle_x),
                           np.deg2rad(random_angle_y),
@@ -45,9 +40,6 @@ def generate_drr(ct_volume: sitk.Image,
     ct_spacing = itk_volume.GetSpacing()
     ct_size = itk_volume.GetLargestPossibleRegion().GetSize()
 
-    # ct_center = ct_volume.TransformIndexToPhysicalPoint((ct_size[0] // 2,
-    #                                                      ct_size[1] // 2,
-    #                                                      ct_size[2] // 2))
     ct_center = (ct_origin[0] + (ct_size[0] / 2.0) * ct_spacing[0],
                  ct_origin[1] + (ct_size[1] / 2.0) * ct_spacing[1],
                  ct_origin[2] + (ct_size[2] / 2.0) * ct_spacing[2])
@@ -64,20 +56,10 @@ def generate_drr(ct_volume: sitk.Image,
     spacing_scale_factor = (output_drr_size[0] / default_drr_size,
                             output_drr_size[1] / default_drr_size)
 
-    match ct_source_type:
-        case "preop":
-            drr_spacing = (ct_spacing[0] / spacing_scale_factor[0],
-                           ct_spacing[2] / spacing_scale_factor[1],
-                           1.0)
-        case "intraop":
-            drr_spacing = (img_intensifier_px_spacing * spacing_scale_factor[0], # img_intensifier_px_spacing *
-                           # spacing_scale_factor[0]
-                           img_intensifier_px_spacing * spacing_scale_factor[0], # img_intensifier_px_spacing *
-                           # spacing_scale_factor[1]
-                           1.0)
-        case _:
-            print("Neznámý CT zdroj")
-            return None
+
+    drr_spacing = (ct_spacing[0] / spacing_scale_factor[0],
+                   ct_spacing[2] / spacing_scale_factor[1],
+                   1.0)
 
     focal_point = (ct_center[0],
                    ct_center[1],
@@ -98,7 +80,7 @@ def generate_drr(ct_volume: sitk.Image,
     image_filter.SetTransform(transform)
     image_filter.SetOutputOrigin(drr_origin)
 
-    return convert_image_itk_to_sitk(image_filter.GetOutput())
+    return convert_image_itk_to_sitk(image_filter.GetOutput())[..., 0]
 
 
 def cast_image(image: sitk.Image, image_type) -> sitk.Image:

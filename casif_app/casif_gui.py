@@ -99,22 +99,17 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         drr_sid = float(self.led_sid.text())
 
         if self.rbu_preop.isChecked() and self.check_preop_ct_exits():  # generate preop drr
+            drr_settings = {"output_view": drr_view, "src_img_dist": drr_sid,
+                            "output_drr_size": drr_size, "threshold": drr_threshold,
+                            "add_rnd_rotation": True}
             output_drr_image = features.generate_drr(preop_ct_data.preop_ct_volume,
-                                                     output_view=drr_view,
-                                                     src_img_dist=drr_sid,
-                                                     output_drr_size=drr_size,
-                                                     threshold=drr_threshold,
-                                                     ct_source_type="preop")
+                                                     drr_settings)
+
             preop_drr_data.preop_drr_image = output_drr_image
             preop_drr_data.preop_drr_exist_state = True
             self.cbo_visualization.setCurrentIndex(0)
         elif self.rbu_intraop.isChecked() and self.check_intraop_ct_exists():  # generate intraop drr
-            output_drr_image = features.generate_drr(intraop_ct_data.intraop_ct_volume,
-                                                     output_view=drr_view,
-                                                     src_img_dist=drr_sid,
-                                                     output_drr_size=drr_size,
-                                                     threshold=drr_threshold,
-                                                     ct_source_type="intraop")
+            #TODO: add gvirtualxray drr image generation
             if self.cbo_inverse_gray.isChecked():
                 output_drr_image = features.invert_drr_image(output_drr_image)
             intraop_drr_data.intraop_drr_image = output_drr_image
@@ -127,7 +122,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
     def display_image(self, input_image):
         image_rescaled = features.cast_image(input_image, image_type=sitk.sitkUInt8)
-        image_array = sitk.GetArrayViewFromImage(image_rescaled)[0, ...]
+        image_array = sitk.GetArrayViewFromImage(image_rescaled)
         data = image_array.data  #
         height, width = image_array.shape
         strides = image_array.strides[0]  # bytes per line for QImage
