@@ -97,11 +97,11 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         drr_view = self.cbo_drr_view.currentIndex()
         drr_threshold = float(self.led_drr_thresh.text())
         drr_sid = float(self.led_sid.text())
-
+        add_rnd_rotation = False
         if self.rbu_preop.isChecked() and self.check_preop_ct_exits():  # generate preop drr
             drr_settings = {"output_view": drr_view, "src_img_dist": drr_sid,
                             "output_drr_size": drr_size, "threshold": drr_threshold,
-                            "add_rnd_rotation": True}
+                            "add_rnd_rotation": add_rnd_rotation}
             output_drr_image = features.generate_drr(preop_ct_data.preop_ct_volume,
                                                      drr_settings)
 

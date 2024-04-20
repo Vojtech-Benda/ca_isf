@@ -12,9 +12,9 @@ def generate_drr(ct_volume: sitk.Image,
     image_filter.SetInput(itk_volume)
     rotation_x = -90.  # default angle to get AP and lateral views
     rotation_z = 0.
-    random_angle_x = None
-    random_angle_y = None
-    random_angle_z = None
+    random_angle_x = 0.
+    random_angle_y = 0.
+    random_angle_z = 0.
 
     match output_view:
         case 0:  # ap view
