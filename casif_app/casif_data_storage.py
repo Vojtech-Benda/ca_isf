@@ -4,18 +4,24 @@ from dataclasses import dataclass, field
 
 @dataclass
 class IntraOpCtData:
-    intraop_ct_volume: sitk.Image = field(default_factory=sitk.Image)
-    intraop_ct_meta: dict = field(default_factory=dict)
+    ct_volume: sitk.Image = field(default_factory=sitk.Image)
+    ct_meta: dict = field(default_factory=dict)
+    exist_state: bool = False
 
 
 @dataclass
 class PreOpDrrData:
-    preop_drr_image: sitk.Image = field(default_factory=sitk.Image)
+    drr_image: sitk.Image = field(default_factory=sitk.Image)
     exist_state: bool = False
 
 
 @dataclass
 class IntraOpDrrData:
-    intraop_drr_image: sitk.Image = field(default_factory=sitk.Image)
+    drr_image: sitk.Image = field(default_factory=sitk.Image)
     exist_state: bool = False
 
+
+@dataclass
+class RegistrationData:
+    registered_image: sitk.Image = field(default_factory=sitk.Image)
+    alpha_blended_image: sitk.Image = field(default_factory=sitk.Image)
