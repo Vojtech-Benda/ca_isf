@@ -33,6 +33,7 @@ def write_drr(sitk_image: sitk.Image, file_path: str):
               f"Error: {error}")
         return None
 
+
 def read_drr(file_path: str) -> Union[sitk.Image, None]:
     try:
         image = sitk.ReadImage(file_path)
