@@ -388,21 +388,21 @@ class Ui_win_main_window(object):
 
         self.gridLayout.addWidget(self.tab_main, 0, 0, 1, 1)
 
-        self.frame = QFrame(self.lay_main_layout)
-        self.frame.setObjectName(u"frame")
-        self.frame.setFrameShape(QFrame.StyledPanel)
-        self.frame.setFrameShadow(QFrame.Plain)
-        self.gridLayout_7 = QGridLayout(self.frame)
+        self.fra_mpl = QFrame(self.lay_main_layout)
+        self.fra_mpl.setObjectName(u"fra_mpl")
+        self.fra_mpl.setFrameShape(QFrame.StyledPanel)
+        self.fra_mpl.setFrameShadow(QFrame.Plain)
+        self.gridLayout_7 = QGridLayout(self.fra_mpl)
         self.gridLayout_7.setObjectName(u"gridLayout_7")
-        self.widget = QWidget(self.frame)
-        self.widget.setObjectName(u"widget")
-        sizePolicy.setHeightForWidth(self.widget.sizePolicy().hasHeightForWidth())
-        self.widget.setSizePolicy(sizePolicy)
+        self.mpl_widget = QWidget(self.fra_mpl)
+        self.mpl_widget.setObjectName(u"mpl_widget")
+        sizePolicy.setHeightForWidth(self.mpl_widget.sizePolicy().hasHeightForWidth())
+        self.mpl_widget.setSizePolicy(sizePolicy)
 
-        self.gridLayout_7.addWidget(self.widget, 0, 0, 1, 1)
+        self.gridLayout_7.addWidget(self.mpl_widget, 0, 0, 1, 1)
 
 
-        self.gridLayout.addWidget(self.frame, 0, 2, 3, 1)
+        self.gridLayout.addWidget(self.fra_mpl, 0, 2, 3, 1)
 
         self.verticalSpacer_5 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
