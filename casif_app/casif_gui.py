@@ -137,7 +137,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.labm_fixed_drr.setText(self.labm_intraop_ct_name.text())
 
         elif self.rbu_preop_drr.isChecked():  # generate preop drr
-            #TODO: add gvirtualxray drr image generation
             pelvis_mesh_file_path = qtw.QFileDialog.getOpenFileName(self, caption="Otevřít STL pánve",
                                                                     dir=os.getcwd(),
                                                                     filter="STL (*.stl)")
