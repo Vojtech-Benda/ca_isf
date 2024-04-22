@@ -25,3 +25,5 @@ class IntraOpDrrData:
 class RegistrationData:
     registered_image: sitk.Image = field(default_factory=sitk.Image)
     alpha_blended_image: sitk.Image = field(default_factory=sitk.Image)
+    labeled_image: sitk.Image = field(default_factory=sitk.Image)
+    exist_state: bool = False

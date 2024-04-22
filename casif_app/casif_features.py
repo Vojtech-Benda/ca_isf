@@ -4,7 +4,8 @@ import numpy as np
 from gvxrPython3 import gvxr
 import time
 from typing import Union
-
+from skimage.morphology import closing, dilation
+from skimage.color import label2rgb
 
 
 def generate_intraop_drr(ct_volume: sitk.Image,
@@ -33,8 +34,6 @@ def generate_intraop_drr(ct_volume: sitk.Image,
     transform.SetCenter(ct_center)
     interpolator.SetTransform(transform)
     interpolator.SetThreshold(threshold)
-
-    # image intensifier pixel spacing at typical size of 304.8 mm (12 inch) at 1k x 1k pixels
 
     # sampling scale factor for images bigger than default
     default_drr_size = 512  # x, y size
@@ -65,6 +64,7 @@ def generate_intraop_drr(ct_volume: sitk.Image,
     image_filter.SetOutputOrigin(drr_origin)
 
     sitk_image = convert_image_itk_to_sitk(image_filter.GetOutput())[..., 0]
+
     sitk_image.SetOrigin((0.0, 0.0))
     sitk_image.SetSpacing((1.0, 1.0))
     sitk_image.SetDirection((1.0, 0.0, 0.0, 1.0))
@@ -263,10 +263,42 @@ def rescale_intensity(image: sitk.Image):
 
 
 def get_alpha_blend(image1: sitk.Image, image2: sitk.Image, alpha=0.5):
-    image1 = sitk.Cast(image1, sitk.sitkFloat32)
-    image2 = sitk.Cast(image2, sitk.sitkFloat32)
+    image1 = sitk.Cast(rescale_intensity(image1), sitk.sitkFloat32)
+    image2 = sitk.Cast(rescale_intensity(image2), sitk.sitkFloat32)
 
     return (alpha * image1) + (1 - alpha) * image2
+
+
+def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
+                      guide_low_thresh: float, guide_up_thresh: float, colors: list):
+    guide_edges = sitk.CannyEdgeDetection(moving_image,
+                                          lowerThreshold=guide_low_thresh,
+                                          upperThreshold=guide_up_thresh)
+    moving_mask = sitk.Image(*moving_image.GetSize(), moving_image.GetPixelID())
+    moving_mask.CopyInformation(moving_image)
+    moving_mask[moving_mask > 0.0] = 1.0
+    bone_edges = sitk.CannyEdgeDetection(moving_mask)
+
+    guide_closed = closing(sitk.GetArrayFromImage(guide_edges), footprint=np.ones(shape=(5, 5))).astype(np.uint8)
+    bones_dilated = 2 * dilation(sitk.GetArrayFromImage(bone_edges), footprint=np.ones(shape=(4, 4))).astype(np.uint8)
+
+    # fixed_image_labels = label2rgb(guide_closed + bones_dilated,
+    #                                image=sitk.GetArrayFromImage(fixed_image),
+    #                                colors=colors,
+    #                                alpha=0.1,
+    #                                bg_label=0)
+
+    label_map = sitk.GetImageFromArray(guide_closed + bones_dilated)
+    bones_dilated_sitk = sitk.GetImageFromArray(bones_dilated)
+
+    yellow = [255, 255, 0]
+    red = [255, 0, 0]
+    labeled_image = sitk.LabelOverlay(fixed_image, label_map,
+                                      opacity=1.0, backgroundValue=0,
+                                      colormap=red + yellow)
+    array = sitk.GetArrayFromImage(labeled_image)  # vector to array
+    sitk_image = sitk.GetImageFromArray(array)  # array to image
+    return sitk.Cast(sitk_image, sitk.sitkUInt8)
 
 
 def get_multires_params(levels: int) -> tuple[list, list]:

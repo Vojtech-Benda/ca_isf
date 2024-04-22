@@ -5,6 +5,8 @@ import SimpleITK as sitk
 from PySide6 import QtCore as qtc
 from PySide6 import QtWidgets as qtw
 from PySide6 import QtGui as qtg
+import numpy as np
+
 
 from casif_app.ui.main_window import Ui_win_main_window
 
@@ -29,6 +31,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.mac_read_preop_drr.triggered.connect(self.read_drr_triggered)
         self.mac_write_preop_drr.triggered.connect(self.write_drr_triggered)
         self.mac_write_intraop_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_write_registered_drr.triggered.connect(self.write_drr_triggered)
 
         # button actions func connections
         self.rbu_intraop_drr.setChecked(True)
@@ -48,6 +51,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
         # update shrink factors and sigmas
         self.led_multires_levels.textChanged.connect(self.update_multires_factors)
+        self.led_lower_edge_thresh.textChanged.connect(self.update_edge_labels)
+        self.led_upper_edge_thresh.textChanged.connect(self.update_edge_labels)
 
         self.mac_info.triggered.connect(self.print_images)
 
@@ -91,7 +96,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
                 self.labm_moving_drr.setText(file_name)
 
-
     @qtc.Slot()
     def write_drr_triggered(self) -> None:
         file_path = qtw.QFileDialog.getSaveFileName(self, caption="Uložit předoperační DRR obraz",
@@ -103,17 +107,10 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 drr_image = preop_drr_data.drr_image
             elif self.sender().objectName() == "mac_write_intraop_drr" and intraop_drr_data.exist_state:
                 drr_image = intraop_drr_data.drr_image
+            elif self.sender().objectName() == "mac_write_registered_drr" and registration_data.exist_state:
+                drr_image = registration_data.registered_image
 
             io.write_drr(drr_image, file_path[0])
-
-    @qtc.Slot()
-    def write_intraop_drr_triggered(self) -> None:
-        pass
-        # file_path = qtw.QFileDialog.getSaveFileName(self, caption="Uložit DRR obraz",
-        #                                             dir=os.path.dirname(io.__file__),
-        #                                             filter="Image (*.png)")
-        # if intraop_drr_data.intra_drr_exist_state:
-        #     io.write_drr(intraop_drr_data.intraop_drr_image, file_path[0])
 
     @qtc.Slot()
     def generate_drr_clicked(self):
@@ -179,12 +176,10 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                     reg_settings=registration_settings,
                                                     progress_window=self.tbr_output_messages)
         registration_data.registered_image = registered_image
+        registration_data.exist_state = True
 
-        registered_rescaled_image = features.rescale_intensity(registration_data.registered_image)
-        fixed_rescaled_image = features.rescale_intensity(intraop_drr_data.drr_image)
-
-        alpha_blended_image = features.get_alpha_blend(fixed_rescaled_image,
-                                                       registered_rescaled_image)
+        alpha_blended_image = features.get_alpha_blend(intraop_drr_data.drr_image,
+                                                       registration_data.registered_image)
         registration_data.alpha_blended_image = alpha_blended_image
         self.display_image(alpha_blended_image)
         self.cbo_visualization.setCurrentIndex(3)
@@ -193,10 +188,26 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         image_rescaled = features.cast_image(input_image, image_type=sitk.sitkUInt8)
         image_array = sitk.GetArrayViewFromImage(image_rescaled)
         data = image_array.data
+
         height, width = image_array.shape
-        strides = image_array.strides[0]  # bytes per line for QImage
-        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, strides,
+        bytes_per_line = image_array.strides[0]  # bytes per line for QImage
+        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, bytes_per_line,
                                               qtg.QImage.Format.Format_Grayscale8))
+        self.gvi_drr.setSceneRect(0, 0, width, height)
+        self.gsc_drr.addPixmap(image_pixmap)
+        self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.gsc_drr.update()
+
+    def display_labeled_image(self, labeled_image):
+        fixed_rescaled_image = features.cast_image(intraop_drr_data.drr_image, image_type=sitk.sitkUInt8)
+        fixed_image_array = sitk.GetArrayFromImage(fixed_rescaled_image)
+        label_array = sitk.GetArrayFromImage(labeled_image)
+        height, width, channels = label_array.shape
+        #FIXME: try embedding matplotlib instead as custom widget in QtDesigner
+        data = label_array.data
+        bytes_per_line = channels * width
+        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, bytes_per_line,
+                                              qtg.QImage.Format.Format))
         self.gvi_drr.setSceneRect(0, 0, width, height)
         self.gsc_drr.addPixmap(image_pixmap)
         self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
@@ -225,8 +236,16 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.display_image(intraop_drr_data.drr_image)
         elif self.cbo_visualization.currentIndex() == 1:  # display intraop drr image
             self.display_image(preop_drr_data.drr_image)
-        elif self.cbo_visualization.currentIndex() == 2:
-            pass
+        elif self.cbo_visualization.currentIndex() == 2 and registration_data.exist_state:
+            lower_thresh = float(self.led_lower_edge_thresh.text())
+            upper_thresh = float(self.led_upper_edge_thresh.text())
+
+            labeled_image = features.get_labeled_edges(intraop_drr_data.drr_image, preop_drr_data.drr_image,
+                                                       guide_low_thresh=lower_thresh, guide_up_thresh=upper_thresh,
+                                                       colors=[edge_red_color, edge_yellow_color])
+            registration_data.labeled_image = labeled_image
+            self.display_labeled_image(labeled_image)
+
         elif self.cbo_visualization.currentIndex() == 3:
             self.display_image(registration_data.alpha_blended_image)
 
@@ -239,7 +258,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             return True
 
     def update_multires_factors(self):
-        f = self.led_multires_levels.text()
         if len(self.led_multires_levels.text()) > 0:
             shrink_factors, smooth_sigmas = features.get_multires_params(int(self.led_multires_levels.text()))
             shrinks = "; ".join(map(str, shrink_factors))
@@ -250,6 +268,20 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         else:
             self.led_shrink_factors.setText("")
             self.led_sigma_factors.setText("")
+
+    def update_edge_labels(self):
+        if not registration_data.exist_state:
+            return None
+
+        if len(self.led_lower_edge_thresh.text()) > 1 or len(self.led_upper_edge_thresh.text()) > 1:
+            lower_thresh = float(self.led_lower_edge_thresh.text())
+            upper_thresh = float(self.led_upper_edge_thresh.text())
+
+            labeled_image = features.get_labeled_edges(intraop_drr_data.drr_image, preop_drr_data.drr_image,
+                                                       guide_low_thresh=lower_thresh, guide_up_thresh=upper_thresh,
+                                                       colors=[edge_red_color, edge_yellow_color])
+            registration_data.labeled_image = labeled_image
+            self.display_labeled_image(labeled_image)
 
     def print_images(self):
         print(intraop_drr_data.drr_image.GetSize())
@@ -264,3 +296,5 @@ registration_data = data_storage.RegistrationData()
 warning_stylesheet = "font-weight: bold; color: red"
 warning_ct_text = "CHYBÍ CT DATA"
 default_ct_text = "---"
+edge_yellow_color = np.array([255, 255, 0], dtype=np.uint8)
+edge_red_color = np.array([255, 0, 0], dtype=np.uint8)
