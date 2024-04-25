@@ -1,14 +1,15 @@
 import os
 import sys
 import re
+
 import SimpleITK as sitk
 from PySide6 import QtCore as qtc
 from PySide6 import QtWidgets as qtw
 from PySide6 import QtGui as qtg
 import numpy as np
+import matplotlib.pyplot as plt
 
-
-from casif_app.ui.main_window import Ui_win_main_window
+from casif_app.ui.main_window_mpl import Ui_win_main_window
 
 import casif_app.casif_io as io
 import casif_app.casif_features as features
@@ -19,6 +20,11 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
     def __init__(self) -> None:
         super(MainWindow, self).__init__()
         self.setupUi(self)
+
+        self.fig_counter = 0
+        self.intraop_drr_counter = 0
+        self.preop_drr_counter = 0
+        self.labeled_image_counter = 0
 
         # menu actions func connections
         self.mac_exit.triggered.connect(sys.exit)
@@ -32,6 +38,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.mac_write_preop_drr.triggered.connect(self.write_drr_triggered)
         self.mac_write_intraop_drr.triggered.connect(self.write_drr_triggered)
         self.mac_write_registered_drr.triggered.connect(self.write_drr_triggered)
+        self.mac_info.triggered.connect(self.print_images)
 
         # button actions func connections
         self.rbu_intraop_drr.setChecked(True)
@@ -40,21 +47,12 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.pbu_drr_start.clicked.connect(self.generate_drr_clicked)
         self.pbu_reg_start.clicked.connect(self.start_registration)
 
+        # signal to change multires factors on level change
+        self.led_multires_levels.textChanged.connect(self.update_multires_factors)
+
         # display first toolbox page
         self.tab_main.setCurrentIndex(0)
-
-        # create graphics scene
-        self.gsc_drr = qtw.QGraphicsScene()
-        self.gvi_drr.setScene(self.gsc_drr)
-
-        self.cbo_visualization.currentIndexChanged.connect(self.display_image_at_index)
-
-        # update shrink factors and sigmas
-        self.led_multires_levels.textChanged.connect(self.update_multires_factors)
-        self.led_lower_edge_thresh.textChanged.connect(self.update_edge_labels)
-        self.led_upper_edge_thresh.textChanged.connect(self.update_edge_labels)
-
-        self.mac_info.triggered.connect(self.print_images)
+        self.twi_data_list.itemDoubleClicked.connect(self.display_double_clicked_item)
 
     @qtc.Slot()
     def read_ct_triggered(self) -> None:
@@ -68,10 +66,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             intraop_ct_data.ct_volume = ct_volume
             intraop_ct_data.ct_meta = ct_metadata
             intraop_ct_data.exist_state = True
-            self.labm_intraop_ct_name.setText(intraop_ct_data.ct_meta["patient_name"])
-            if self.labm_data_warning.text != default_ct_text:
-                self.labm_data_warning.setText(default_ct_text)
-                self.labm_data_warning.setStyleSheet("")
+
+            self.add_tree_child(0, ct_metadata["patient_name"])
 
     @qtc.Slot()
     def read_drr_triggered(self) -> None:
@@ -80,21 +76,41 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         if file_path[0]:
             drr_image = io.read_drr(file_path[0])
             file_name = re.split("[/.]", file_path[0])[-2]
+
             if self.sender().objectName() == "mac_read_intraop_drr":
                 intraop_drr_data.drr_image = drr_image
                 intraop_drr_data.exist_state = True
-                self.display_image(drr_image)
-                self.cbo_visualization.setCurrentIndex(0)
+                intraop_drr_data.all_images[f"drr_{self.intraop_drr_counter}"] = drr_image
+                self.intraop_drr_counter += 1
 
-                self.labm_fixed_drr.setText(file_name)
+                self.add_tree_child(1, file_name)
+                self.add_intraop_item(file_name)
 
             elif self.sender().objectName() == "mac_read_preop_drr":
                 preop_drr_data.drr_image = drr_image
                 preop_drr_data.exist_state = True
-                self.display_image(drr_image)
-                self.cbo_visualization.setCurrentIndex(1)
+                preop_drr_data.all_images[f"drr_{self.preop_drr_counter}"] = drr_image
+                self.preop_drr_counter += 1
 
-                self.labm_moving_drr.setText(file_name)
+                self.add_tree_child(2, file_name)
+                self.add_preop_item(file_name)
+
+            drr_array = sitk.GetArrayFromImage(drr_image)
+            self.display_image(drr_array, file_name)
+
+    def add_intraop_item(self, image_name):
+        if self.intraop_drr_counter == 1:
+            self.cbo_intraop_input.setItemText(0, image_name)
+        else:
+            self.cbo_intraop_input.addItem(image_name)
+            self.cbo_intraop_input.setCurrentIndex(self.intraop_drr_counter - 1)
+
+    def add_preop_item(self, image_name):
+        if self.preop_drr_counter == 1:
+            self.cbo_preop_input.setItemText(0, image_name)
+        else:
+            self.cbo_preop_input.addItem(image_name)
+            self.cbo_preop_input.setCurrentIndex(self.preop_drr_counter - 1)
 
     @qtc.Slot()
     def write_drr_triggered(self) -> None:
@@ -123,18 +139,22 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
         if self.rbu_intraop_drr.isChecked():  # generate intraop drr
 
-            # do nothing if ct doesn't exist
-            if not self.check_intraop_ct_exists():
+            if not intraop_ct_data.exist_state:
+                self.tbr_output_messages.insertPlainText("CHYBÍ CT DATA \n")
                 return None
 
             output_drr_image = features.generate_intraop_drr(intraop_ct_data.ct_volume,
                                                              drr_settings)
-
             intraop_drr_data.drr_image = output_drr_image
             intraop_drr_data.exist_state = True
-            self.cbo_visualization.setCurrentIndex(0)
+            intraop_drr_data.all_images[f"drr_{self.intraop_drr_counter}"] = output_drr_image
 
-            self.labm_fixed_drr.setText(self.labm_intraop_ct_name.text())
+            self.intraop_drr_counter += 1
+            self.add_intraop_item(intraop_ct_data.ct_meta["patient_name"])
+            self.add_tree_child(1, intraop_ct_data.ct_meta["patient_name"])
+
+            output_image_array = sitk.GetArrayFromImage(output_drr_image)
+            self.display_image(output_image_array, intraop_ct_data.ct_meta["patient_name"])
 
         elif self.rbu_preop_drr.isChecked():  # generate preop drr
             pelvis_mesh_file_path = qtw.QFileDialog.getOpenFileName(self, caption="Otevřít STL pánve",
@@ -144,20 +164,33 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                                                    dir=os.getcwd(),
                                                                    filter="STL (*.stl)")
 
-            output_drr_image = features.generate_preop_drr(pelvis_mesh_file_path[0],
-                                                           guide_mesh_file_path[0],
-                                                           drr_settings)
-            preop_drr_data.drr_image = output_drr_image
-            preop_drr_data.exist_state = True
-            preop_drr_name = re.split("[/.]", pelvis_mesh_file_path[0])[-2]
-            self.labm_preop_name.setText(preop_drr_name)
-            self.cbo_visualization.setCurrentIndex(1)
+            if pelvis_mesh_file_path and guide_mesh_file_path:
+                output_drr_image = features.generate_preop_drr(pelvis_mesh_file_path[0],
+                                                               guide_mesh_file_path[0],
+                                                               drr_settings)
+                preop_drr_data.drr_image = output_drr_image
+                preop_drr_data.exist_state = True
+                preop_drr_name = re.split("[/.]", pelvis_mesh_file_path[0])[-2]
+                preop_drr_data.all_images[f"drr_{self.preop_drr_counter}"] = output_drr_image
 
-            self.labm_moving_drr.setText(preop_drr_name)
+                self.preop_drr_counter += 1
+                self.add_preop_item(preop_drr_name)
+                self.add_tree_child(2, preop_drr_name)
 
-        self.display_image(output_drr_image)
+                output_image_array = sitk.GetArrayFromImage(output_drr_image)
+                self.display_image(output_image_array, preop_drr_name)
 
     def start_registration(self):
+        if self.cbo_intraop_input.currentText() == "---" and self.cbo_preop_input.currentText() == "---":
+            self.tbr_output_messages.insertPlainText("CHYBÍ INTRAOPERAČNÍ A PŘEDOPERAČNÍ DRR OBRAZY\n")
+            return None
+        elif self.cbo_intraop_input.currentText() == "---":
+            self.tbr_output_messages.insertPlainText("CHYBÍ INTRAOPERAČNÍ DRR OBRAZ\n")
+            return None
+        elif self.cbo_preop_input.currentText() == "---":
+            self.tbr_output_messages.insertPlainText("CHYBÍ PŘEDOPERAČNÍ DRR OBRAZ\n")
+            return None
+
         shrink_factors = []
         smoothing_sigmas = []
         if len(self.led_shrink_factors.text()) > 0:
@@ -170,57 +203,46 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                                  "shrink_factors": shrink_factors,
                                  "smoothing_sigmas": smoothing_sigmas}
 
-        registered_image = features.register_images(fixed_image=intraop_drr_data.drr_image,
-                                                    moving_image=preop_drr_data.drr_image,
+        fixed_image = intraop_drr_data.all_images[f"drr_{self.cbo_intraop_input.currentIndex()}"]
+        moving_image = preop_drr_data.all_images[f"drr_{self.cbo_preop_input.currentIndex()}"]
+
+        registered_image = features.register_images(fixed_image=fixed_image,
+                                                    moving_image=moving_image,
                                                     reg_settings=registration_settings,
                                                     progress_window=self.tbr_output_messages)
         registration_data.registered_image = registered_image
         registration_data.exist_state = True
 
-        alpha_blended_image = features.get_alpha_blend(intraop_drr_data.drr_image,
-                                                       registration_data.registered_image)
-        registration_data.alpha_blended_image = alpha_blended_image
-        self.display_image(alpha_blended_image)
-        self.cbo_visualization.setCurrentIndex(3)
+        lower_thresh = self.led_lower_edge_thresh.text()
+        upper_thresh = self.led_upper_edge_thresh.text()
 
-    def display_image(self, input_image):
-        image_rescaled = features.cast_image(input_image, image_type=sitk.sitkUInt8)
-        image_array = sitk.GetArrayViewFromImage(image_rescaled)
-        data = image_array.data
+        labeled_image = features.get_labeled_edges(fixed_image, registered_image,
+                                                   guide_low_thresh=float(lower_thresh),
+                                                   guide_up_thresh=float(upper_thresh),
+                                                   colors=[edge_yellow_color, edge_red_color])
+        registration_data.all_images[f"labeled_{self.labeled_image_counter}"] = labeled_image
+        self.labeled_image_counter += 1
 
-        height, width = image_array.shape
-        bytes_per_line = image_array.strides[0]  # bytes per line for QImage
-        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, bytes_per_line,
-                                              qtg.QImage.Format.Format_Grayscale8))
-        self.gvi_drr.setSceneRect(0, 0, width, height)
-        self.gsc_drr.addPixmap(image_pixmap)
-        self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
-        self.gsc_drr.update()
+        self.add_tree_child(3, f"hrany_Low{lower_thresh}_Up{upper_thresh}")
 
-    def display_labeled_image(self, labeled_image):
-        fixed_rescaled_image = features.cast_image(intraop_drr_data.drr_image, image_type=sitk.sitkUInt8)
-        fixed_image_array = sitk.GetArrayFromImage(fixed_rescaled_image)
-        label_array = sitk.GetArrayFromImage(labeled_image)
-        height, width, channels = label_array.shape
-        #FIXME: try embedding matplotlib instead as custom widget in QtDesigner
-        data = label_array.data
-        bytes_per_line = channels * width
-        image_pixmap = qtg.QPixmap(qtg.QImage(data, width, height, bytes_per_line,
-                                              qtg.QImage.Format.Format))
-        self.gvi_drr.setSceneRect(0, 0, width, height)
-        self.gsc_drr.addPixmap(image_pixmap)
-        self.gvi_drr.fitInView(0, 0, width, height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
-        self.gsc_drr.update()
+        self.display_image(labeled_image, "labeled_image")
 
-    def resizeEvent(self, event: qtg.QResizeEvent) -> None:
-        super().resizeEvent(event)
+    def display_image(self, image_array, image_name):
 
-        # drr_width, drr_height = drr_data.drr_image.GetSize()[:2]
-        # self.gvi_drr.fitInView(0, 0, drr_width, drr_height, qtc.Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        fig, axes = plt.subplots(1, 1, num=self.fig_counter)
+        axes.set_title(image_name)
+        axes.set_axis_off()
+        self.fig_counter += 1
+
+        if image_array.ndim == 2:
+            axes.imshow(image_array, cmap="gray")
+        elif image_array.ndim == 3:
+            axes.imshow(image_array)
+
+        plt.show(block=False)
 
     def closeEvent(self, event: qtg.QCloseEvent) -> None:
         super().closeEvent(event)
-
         sys.exit()
 
     def input_settings_state_change(self):
@@ -229,32 +251,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         else:
             self.led_drr_thresh.setEnabled(False)
             self.led_drr_thresh.setText("0")
-
-    def display_image_at_index(self):
-        if self.cbo_visualization.currentIndex() == 0:  # display preop drr image
-            self.display_image(intraop_drr_data.drr_image)
-        elif self.cbo_visualization.currentIndex() == 1:  # display intraop drr image
-            self.display_image(preop_drr_data.drr_image)
-        elif self.cbo_visualization.currentIndex() == 2 and registration_data.exist_state:
-            lower_thresh = float(self.led_lower_edge_thresh.text())
-            upper_thresh = float(self.led_upper_edge_thresh.text())
-
-            labeled_image = features.get_labeled_edges(intraop_drr_data.drr_image, preop_drr_data.drr_image,
-                                                       guide_low_thresh=lower_thresh, guide_up_thresh=upper_thresh,
-                                                       colors=[edge_red_color, edge_yellow_color])
-            registration_data.labeled_image = labeled_image
-            self.display_labeled_image(labeled_image)
-
-        elif self.cbo_visualization.currentIndex() == 3:
-            self.display_image(registration_data.alpha_blended_image)
-
-    def check_intraop_ct_exists(self):
-        if not intraop_ct_data.exist_state:
-            self.labm_data_warning.setText(warning_ct_text)
-            self.labm_data_warning.setStyleSheet(warning_stylesheet)
-            return False
-        else:
-            return True
 
     def update_multires_factors(self):
         if len(self.led_multires_levels.text()) > 0:
@@ -268,21 +264,45 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.led_shrink_factors.setText("")
             self.led_sigma_factors.setText("")
 
-    def update_edge_labels(self):
-        if not registration_data.exist_state:
+    def add_tree_child(self, level_index, child_name):
+
+        subitem = qtw.QTreeWidgetItem([child_name])
+
+        match level_index:
+            case 0:  # ct item
+                self.twi_data_list.topLevelItem(0).addChild(subitem)
+            case 1:  # intraop drr item
+                self.twi_data_list.topLevelItem(1).addChild(subitem)
+            case 2:  # preop drr item
+                self.twi_data_list.topLevelItem(2).addChild(subitem)
+            case 3:  # registered items
+                self.twi_data_list.topLevelItem(3).addChild(subitem)
+        self.twi_data_list.topLevelItem(level_index).setExpanded(True)
+
+    def display_double_clicked_item(self, item: qtw.QTreeWidgetItem):
+
+        if item.parent() is None:
             return None
 
-        if len(self.led_lower_edge_thresh.text()) > 1 or len(self.led_upper_edge_thresh.text()) > 1:
-            lower_thresh = float(self.led_lower_edge_thresh.text())
-            upper_thresh = float(self.led_upper_edge_thresh.text())
+        index = self.twi_data_list.indexFromItem(item, 0).row()
+        image_name = item.text(0)
+        match item.parent().text(0):
+            case "Intraoperační DRR":
+                image_data = intraop_drr_data.all_images[f"drr_{index}"]
+                image_array = sitk.GetArrayFromImage(image_data)
+            case "Předoperační DRR":
+                image_data = preop_drr_data.all_images[f"drr_{index}"]
+                image_array = sitk.GetArrayFromImage(image_data)
+            case "Výstup registrace":
+                image_array = registration_data.all_images[f"labeled_{index}"]
+            case _:
+                return None
 
-            labeled_image = features.get_labeled_edges(intraop_drr_data.drr_image, preop_drr_data.drr_image,
-                                                       guide_low_thresh=lower_thresh, guide_up_thresh=upper_thresh,
-                                                       colors=[edge_red_color, edge_yellow_color])
-            registration_data.labeled_image = labeled_image
-            self.display_labeled_image(labeled_image)
+        self.display_image(image_array, image_name)
 
     def print_images(self):
+        print(self.twi_data_list.selectedItems())
+        print(self.cbo_optim_method.count())
         print(intraop_drr_data.drr_image.GetSize())
         print(preop_drr_data.drr_image.GetSize())
         print(registration_data.registered_image.GetSize())

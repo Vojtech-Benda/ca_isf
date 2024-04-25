@@ -196,8 +196,7 @@ def register_images(fixed_image: sitk.Image, moving_image: sitk.Image,
         registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=smoothing_sigmas)
         registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
 
-    progress_window.insertPlainText(f"Víceúrovňová registrace:\n"
-                                    f"{len(shrink_factors)} úrovně\n"
+    progress_window.insertPlainText(f"Víceúrovňová registrace: {len(shrink_factors)} úrovně\n"
                                     f"\tškálovací konstanty: {shrink_factors}\n"
                                     f"\trozptyly: {smoothing_sigmas}\n")
     method = ""
@@ -254,7 +253,8 @@ def register_images(fixed_image: sitk.Image, moving_image: sitk.Image,
     final_transform = sitk.CompositeTransform([optimized_transform, initial_transform])
     final_image = sitk.Resample(moving_image, fixed_image, final_transform,
                                 sitk.sitkLinear, 0.0, moving_image.GetPixelID())
-    progress_window.insertPlainText("Hotovo...\n")
+    progress_window.insertPlainText("Hotovo...\n"
+                                    "---------------------------------------------------------\n")
     return final_image
 
 
@@ -274,31 +274,20 @@ def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
     guide_edges = sitk.CannyEdgeDetection(moving_image,
                                           lowerThreshold=guide_low_thresh,
                                           upperThreshold=guide_up_thresh)
-    moving_mask = sitk.Image(*moving_image.GetSize(), moving_image.GetPixelID())
-    moving_mask.CopyInformation(moving_image)
-    moving_mask[moving_mask > 0.0] = 1.0
-    bone_edges = sitk.CannyEdgeDetection(moving_mask)
+
+    moving_mask = sitk.GetArrayFromImage(moving_image)
+    moving_mask[moving_mask > 0] = 1
+    bone_edges = sitk.CannyEdgeDetection(sitk.GetImageFromArray(moving_mask))
 
     guide_closed = closing(sitk.GetArrayFromImage(guide_edges), footprint=np.ones(shape=(5, 5))).astype(np.uint8)
     bones_dilated = 2 * dilation(sitk.GetArrayFromImage(bone_edges), footprint=np.ones(shape=(4, 4))).astype(np.uint8)
 
-    # fixed_image_labels = label2rgb(guide_closed + bones_dilated,
-    #                                image=sitk.GetArrayFromImage(fixed_image),
-    #                                colors=colors,
-    #                                alpha=0.1,
-    #                                bg_label=0)
-
-    label_map = sitk.GetImageFromArray(guide_closed + bones_dilated)
-    bones_dilated_sitk = sitk.GetImageFromArray(bones_dilated)
-
-    yellow = [255, 255, 0]
-    red = [255, 0, 0]
-    labeled_image = sitk.LabelOverlay(fixed_image, label_map,
-                                      opacity=1.0, backgroundValue=0,
-                                      colormap=red + yellow)
-    array = sitk.GetArrayFromImage(labeled_image)  # vector to array
-    sitk_image = sitk.GetImageFromArray(array)  # array to image
-    return sitk.Cast(sitk_image, sitk.sitkUInt8)
+    fixed_image_labels = label2rgb(guide_closed + bones_dilated,
+                                   image=sitk.GetArrayFromImage(fixed_image),
+                                   colors=colors,
+                                   alpha=0.1,
+                                   bg_label=0)
+    return fixed_image_labels
 
 
 def get_multires_params(levels: int) -> tuple[list, list]:
