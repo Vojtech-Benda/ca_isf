@@ -9,7 +9,7 @@ from PySide6 import QtGui as qtg
 import numpy as np
 import matplotlib.pyplot as plt
 
-from casif_app.ui.main_window_mpl import Ui_win_main_window
+from casif_app.ui.main_window import Ui_win_main_window
 
 import casif_app.casif_io as io
 import casif_app.casif_features as features
