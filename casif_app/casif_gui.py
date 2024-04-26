@@ -7,7 +7,6 @@ from PySide6 import QtCore as qtc
 from PySide6 import QtWidgets as qtw
 from PySide6 import QtGui as qtg
 import numpy as np
-import matplotlib.pyplot as plt
 
 from casif_app.ui.main_window import Ui_win_main_window
 
@@ -25,6 +24,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.intraop_drr_counter = 0
         self.preop_drr_counter = 0
         self.labeled_image_counter = 0
+        self.window_counter = 0
+        self.window_dict = {}
 
         # menu actions func connections
         self.mac_exit.triggered.connect(sys.exit)
@@ -96,7 +97,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 self.add_preop_item(file_name)
 
             drr_array = sitk.GetArrayFromImage(drr_image)
-            self.display_image(drr_array, file_name)
+            self.display_image(drr_image, file_name)
 
     def add_intraop_item(self, image_name):
         if self.intraop_drr_counter == 1:
@@ -154,7 +155,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
             self.add_tree_child(1, intraop_ct_data.ct_meta["patient_name"])
 
             output_image_array = sitk.GetArrayFromImage(output_drr_image)
-            self.display_image(output_image_array, intraop_ct_data.ct_meta["patient_name"])
+            self.display_image(output_drr_image, intraop_ct_data.ct_meta["patient_name"])
 
         elif self.rbu_preop_drr.isChecked():  # generate preop drr
             pelvis_mesh_file_path = qtw.QFileDialog.getOpenFileName(self, caption="Otevřít STL pánve",
@@ -178,7 +179,7 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 self.add_tree_child(2, preop_drr_name)
 
                 output_image_array = sitk.GetArrayFromImage(output_drr_image)
-                self.display_image(output_image_array, preop_drr_name)
+                self.display_image(output_drr_image, preop_drr_name)
 
     def start_registration(self):
         if self.cbo_intraop_input.currentText() == "---" and self.cbo_preop_input.currentText() == "---":
@@ -219,27 +220,34 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         labeled_image = features.get_labeled_edges(fixed_image, registered_image,
                                                    guide_low_thresh=float(lower_thresh),
                                                    guide_up_thresh=float(upper_thresh),
-                                                   colors=[edge_yellow_color, edge_red_color])
+                                                   colors=edge_colors)
         registration_data.all_images[f"labeled_{self.labeled_image_counter}"] = labeled_image
         self.labeled_image_counter += 1
 
         self.add_tree_child(3, f"hrany_Low{lower_thresh}_Up{upper_thresh}")
 
+        labeled_array = sitk.GetArrayFromImage(labeled_image)
         self.display_image(labeled_image, "labeled_image")
 
-    def display_image(self, image_array, image_name):
+    def display_image(self, image_data, image_name):
 
-        fig, axes = plt.subplots(1, 1, num=self.fig_counter)
-        axes.set_title(image_name)
-        axes.set_axis_off()
-        self.fig_counter += 1
+        self.window_dict[self.window_counter] = ImageViewer(image_data, image_name)
+        self.window_dict[self.window_counter].show()
+        self.window_counter += 1
+        # fig, axes = plt.subplots(1, 1, num=self.fig_counter)
+        # axes.set_title(image_name)
+        # axes.set_axis_off()
+        # self.fig_counter += 1
 
-        if image_array.ndim == 2:
-            axes.imshow(image_array, cmap="gray")
-        elif image_array.ndim == 3:
-            axes.imshow(image_array)
+        # image_array = sitk.GetArrayFromImage(image_data)
+        # shape = image_array.shape
+        # if image_array.ndim == 2:
+            #axes.imshow(image_array, cmap="gray")
+        # elif image_array.ndim == 3:
+        #     axes.imshow(image_array)
 
-        plt.show(block=False)
+
+        #plt.show(block=False)
 
     def closeEvent(self, event: qtg.QCloseEvent) -> None:
         super().closeEvent(event)
@@ -294,11 +302,11 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 image_data = preop_drr_data.all_images[f"drr_{index}"]
                 image_array = sitk.GetArrayFromImage(image_data)
             case "Výstup registrace":
-                image_array = registration_data.all_images[f"labeled_{index}"]
+                image_data = registration_data.all_images[f"labeled_{index}"]
             case _:
                 return None
 
-        self.display_image(image_array, image_name)
+        self.display_image(image_data, image_name)
 
     def print_images(self):
         print(self.twi_data_list.selectedItems())
@@ -308,6 +316,34 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         print(registration_data.registered_image.GetSize())
 
 
+class ImageViewer(qtw.QWidget):
+    def __init__(self, image_data, image_name=None):
+        super().__init__()
+        qlayout = qtw.QVBoxLayout()
+        self.qlabel = qtw.QLabel(image_name)
+        qlayout.addWidget(self.qlabel)
+        self.setLayout(qlayout)
+        self.display_image(image_data, image_name)
+
+    def display_image(self, image_data: sitk.Image, image_name):
+
+        if image_data.GetPixelID() in {sitk.sitkUInt16, sitk.sitkInt16, sitk.sitkFloat32, sitk.sitkFloat64}:
+            image_data = features.rescale_intensity(image_data)
+
+        image_array = sitk.GetArrayFromImage(image_data)
+        shape = image_array.shape
+        if image_array.ndim == 2:
+            qimage = qtg.QImage(image_array.data, shape[1], shape[0], image_array.strides[0],
+                                qtg.QImage.Format.Format_Grayscale8)
+        elif image_array.ndim == 3:
+            qimage = qtg.QImage(image_array.data, shape[1], shape[0], image_array.strides[0],
+                                qtg.QImage.Format.Format_RGB888)
+        else:
+            return None
+        qpixmap = qtg.QPixmap(qimage)
+        self.qlabel.setPixmap(qpixmap)
+
+
 preop_drr_data = data_storage.PreOpDrrData()
 intraop_ct_data = data_storage.IntraOpCtData()
 intraop_drr_data = data_storage.IntraOpDrrData()
@@ -315,5 +351,7 @@ registration_data = data_storage.RegistrationData()
 warning_stylesheet = "font-weight: bold; color: red"
 warning_ct_text = "CHYBÍ CT DATA"
 default_ct_text = "---"
+edge_colors = {"yellow": [255, 255, 0],
+               "red": [255, 0, 0]}
 edge_yellow_color = np.array([255, 255, 0], dtype=np.uint8)
 edge_red_color = np.array([255, 0, 0], dtype=np.uint8)

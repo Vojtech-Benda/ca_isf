@@ -5,7 +5,6 @@ from gvxrPython3 import gvxr
 import time
 from typing import Union
 from skimage.morphology import closing, dilation
-from skimage.color import label2rgb
 
 
 def generate_intraop_drr(ct_volume: sitk.Image,
@@ -258,7 +257,7 @@ def register_images(fixed_image: sitk.Image, moving_image: sitk.Image,
     return final_image
 
 
-def rescale_intensity(image: sitk.Image):
+def rescale_intensity(image: sitk.Image) -> sitk.Image:
     return sitk.Cast(sitk.RescaleIntensity(image, 0, 255), pixelID=sitk.sitkUInt8)
 
 
@@ -270,24 +269,28 @@ def get_alpha_blend(image1: sitk.Image, image2: sitk.Image, alpha=0.5):
 
 
 def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
-                      guide_low_thresh: float, guide_up_thresh: float, colors: list):
+                      guide_low_thresh: float, guide_up_thresh: float, colors: dict):
+
+    fixed_image_rescaled = rescale_intensity(fixed_image)
+
     guide_edges = sitk.CannyEdgeDetection(moving_image,
                                           lowerThreshold=guide_low_thresh,
                                           upperThreshold=guide_up_thresh)
 
     moving_mask = sitk.GetArrayFromImage(moving_image)
-    moving_mask[moving_mask > 0] = 1
+    moving_mask[moving_mask > 0.0] = 1.0
     bone_edges = sitk.CannyEdgeDetection(sitk.GetImageFromArray(moving_mask))
 
     guide_closed = closing(sitk.GetArrayFromImage(guide_edges), footprint=np.ones(shape=(5, 5))).astype(np.uint8)
     bones_dilated = 2 * dilation(sitk.GetArrayFromImage(bone_edges), footprint=np.ones(shape=(4, 4))).astype(np.uint8)
 
-    fixed_image_labels = label2rgb(guide_closed + bones_dilated,
-                                   image=sitk.GetArrayFromImage(fixed_image),
-                                   colors=colors,
-                                   alpha=0.1,
-                                   bg_label=0)
-    return fixed_image_labels
+    label_map = sitk.GetImageFromArray(guide_closed + bones_dilated)
+
+    labeled_image = sitk.LabelOverlay(fixed_image_rescaled, label_map,
+                                      colormap=colors["red"] + colors["yellow"],
+                                      opacity=1.0, backgroundValue=0)
+
+    return labeled_image
 
 
 def get_multires_params(levels: int) -> tuple[list, list]:
