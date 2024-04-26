@@ -15,8 +15,6 @@ def runSim(patientNumber):
     # configure x-ray source
     gvxr.setSourcePosition(0., -1000., 0., "mm")
     gvxr.usePointSource()
-    # gvxr.addFilter("Al", 1., "mm")
-    # gvxr.addFilter("Cu", 0.1, "mm")
     gvxr.setMonoChromatic(80., "keV", 1000)
 
     # configure detector/output image
@@ -24,8 +22,6 @@ def runSim(patientNumber):
     gvxr.setDetectorUpVector(0, 0, -1)
     gvxr.setDetectorNumberOfPixels(1000, 1000)
     gvxr.setDetectorPixelSize(0.4, 0.4, "mm")
-    #gvxr.setDetectorPixelSize(0.3048, 0.3048, "mm")
-    # gvxr.setScintillator("CsI", 600, "um")
 
     # load mesh files
     gvxr.loadMeshFile("panev", inputMeshPath, "mm")
@@ -35,10 +31,7 @@ def runSim(patientNumber):
     gvxr.moveToCenter()
     gvxr.translateNode("panev", 0, -100, 0, "mm")
     gvxr.translateNode("drat", 0, -100, 0, "mm")
-    # gvxr.setMixture("panev", [1, 6, 7, 8, 11, 12, 15, 16, 20],
-    #                 [0.034, 0.155, 0.042, 0.435, 0.001, 0.002, 0.103, 0.003, 0.225])
     gvxr.setCompound("panev", "HCNONaMgPSCa")
-    # gvxr.setCompound("panev", "Ca10(PO4)6(OH)2")
     gvxr.setDensity("panev", 1.920, "g/cm3")
     gvxr.setCompound("drat", "FeCrNi")
     gvxr.setDensity("drat", 8., "g/cm3") # 316L medical grade stainless steel density
@@ -72,5 +65,4 @@ def runSim(patientNumber):
 
 if __name__ == "__main__":
     patienNum = sys.argv[1]
-    # viewAngle = sys.argv[2]
     runSim(patienNum)

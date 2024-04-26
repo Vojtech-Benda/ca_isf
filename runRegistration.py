@@ -295,37 +295,37 @@ def runMain():
 
     plotRegistrationErrors()
 
-    # patientDir = os.path.join(inputDir, f"{regOptim}\\")
+    patientDir = os.path.join(inputDir, f"{regOptim}\\")
 
-    # if not os.path.exists(patientDir):  # create optimizer directory if there isn't
-    #     os.makedirs(patientDir)
+    if not os.path.exists(patientDir):  # create optimizer directory if there isn't
+        os.makedirs(patientDir)
 
-    # print("Saving images, metrics, errors, points...")
-    # imagePath = os.path.join(patientDir, f"pacient{patientNumber}Images.npz")
-    # metricsPath = os.path.join(patientDir, f"pacient{patientNumber}RegParams.npz")
-    # preErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}PreErrors.npz")
-    # initialErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}InitialErrors.npz")
-    # regErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}RegErrors.npz")
-    # pointsPath = os.path.join(patientDir, f"pacient{patientNumber}Points.npz")
+    print("Saving images, metrics, errors, points...")
+    imagePath = os.path.join(patientDir, f"pacient{patientNumber}Images.npz")
+    metricsPath = os.path.join(patientDir, f"pacient{patientNumber}RegParams.npz")
+    preErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}PreErrors.npz")
+    initialErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}InitialErrors.npz")
+    regErrorsPath = os.path.join(patientDir, f"pacient{patientNumber}RegErrors.npz")
+    pointsPath = os.path.join(patientDir, f"pacient{patientNumber}Points.npz")
 
-    # np.savez(imagePath, movingImage=sitk.GetArrayFromImage(movingImage),
-    #          fixedImage=sitk.GetArrayFromImage(fixedImage),
-    #          movingInitialImage=sitk.GetArrayFromImage(movingInitialImage),
-    #          movingFinalImage=sitk.GetArrayFromImage(movingFinalImage))
+    np.savez(imagePath, movingImage=sitk.GetArrayFromImage(movingImage),
+             fixedImage=sitk.GetArrayFromImage(fixedImage),
+             movingInitialImage=sitk.GetArrayFromImage(movingInitialImage),
+             movingFinalImage=sitk.GetArrayFromImage(movingFinalImage))
 
-    # np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
-    #          shrinkFactors=shrinkFactor, smoothingSigmas=smoothSigmas, execTime=exec_time)
+    np.savez(metricsPath, metricValues=metric_values, finalIter=final_iter, multiresIters=multires_iterations,
+             shrinkFactors=shrinkFactor, smoothingSigmas=smoothSigmas, execTime=exec_time)
 
-    # np.savez(preErrorsPath, preErrors=pre_errors, preMedians=pre_median, preStds=pre_std,
-    #          preMins=pre_min, preMaxs=pre_max)
-    # np.savez(initialErrorsPath, initialErrors=initial_errors, initialMedians=initial_median, initialStds=initial_std,
-    #          initialMins=initial_min, initialMaxs=initial_max)
-    # np.savez(regErrorsPath, regErrors=error_values, regMedians=median_values, regStds=std_values,
-    #          regMins=min_values, regMaxs=max_values)
+    np.savez(preErrorsPath, preErrors=pre_errors, preMedians=pre_median, preStds=pre_std,
+             preMins=pre_min, preMaxs=pre_max)
+    np.savez(initialErrorsPath, initialErrors=initial_errors, initialMedians=initial_median, initialStds=initial_std,
+             initialMins=initial_min, initialMaxs=initial_max)
+    np.savez(regErrorsPath, regErrors=error_values, regMedians=median_values, regStds=std_values,
+             regMins=min_values, regMaxs=max_values)
 
-    # np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
-    #          movingInitialPoints=movingInitialPoints, movingFinalPoints=movingFinalPoints)
-    # print(f"Saved to {patientDir}")
+    np.savez(pointsPath, fixedPoints=np.array(fixedPoints), movingPoints=np.array(movingPoints),
+             movingInitialPoints=movingInitialPoints, movingFinalPoints=movingFinalPoints)
+    print(f"Saved to {patientDir}")
     print("Finished...")
 
 
