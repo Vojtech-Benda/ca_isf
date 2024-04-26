@@ -178,7 +178,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
                 self.add_preop_item(preop_drr_name)
                 self.add_tree_child(2, preop_drr_name)
 
-                output_image_array = sitk.GetArrayFromImage(output_drr_image)
                 self.display_image(output_drr_image, preop_drr_name)
 
     def start_registration(self):
@@ -226,7 +225,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
 
         self.add_tree_child(3, f"hrany_Low{lower_thresh}_Up{upper_thresh}")
 
-        labeled_array = sitk.GetArrayFromImage(labeled_image)
         self.display_image(labeled_image, "labeled_image")
 
     def display_image(self, image_data, image_name):
@@ -234,20 +232,6 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         self.window_dict[self.window_counter] = ImageViewer(image_data, image_name)
         self.window_dict[self.window_counter].show()
         self.window_counter += 1
-        # fig, axes = plt.subplots(1, 1, num=self.fig_counter)
-        # axes.set_title(image_name)
-        # axes.set_axis_off()
-        # self.fig_counter += 1
-
-        # image_array = sitk.GetArrayFromImage(image_data)
-        # shape = image_array.shape
-        # if image_array.ndim == 2:
-            #axes.imshow(image_array, cmap="gray")
-        # elif image_array.ndim == 3:
-        #     axes.imshow(image_array)
-
-
-        #plt.show(block=False)
 
     def closeEvent(self, event: qtg.QCloseEvent) -> None:
         super().closeEvent(event)
@@ -297,10 +281,8 @@ class MainWindow(qtw.QMainWindow, Ui_win_main_window):
         match item.parent().text(0):
             case "Intraoperační DRR":
                 image_data = intraop_drr_data.all_images[f"drr_{index}"]
-                image_array = sitk.GetArrayFromImage(image_data)
             case "Předoperační DRR":
                 image_data = preop_drr_data.all_images[f"drr_{index}"]
-                image_array = sitk.GetArrayFromImage(image_data)
             case "Výstup registrace":
                 image_data = registration_data.all_images[f"labeled_{index}"]
             case _:
@@ -323,9 +305,9 @@ class ImageViewer(qtw.QWidget):
         self.qlabel = qtw.QLabel(image_name)
         qlayout.addWidget(self.qlabel)
         self.setLayout(qlayout)
-        self.display_image(image_data, image_name)
+        self.display_image(image_data)
 
-    def display_image(self, image_data: sitk.Image, image_name):
+    def display_image(self, image_data: sitk.Image):
 
         if image_data.GetPixelID() in {sitk.sitkUInt16, sitk.sitkInt16, sitk.sitkFloat32, sitk.sitkFloat64}:
             image_data = features.rescale_intensity(image_data)
