@@ -306,6 +306,7 @@ class ImageViewer(qtw.QWidget):
         qlayout.addWidget(self.qlabel)
         self.setLayout(qlayout)
         self.display_image(image_data)
+        self.setFixedSize(700, 700)
 
     def display_image(self, image_data: sitk.Image):
 
@@ -323,7 +324,8 @@ class ImageViewer(qtw.QWidget):
         else:
             return None
         qpixmap = qtg.QPixmap(qimage)
-        self.qlabel.setPixmap(qpixmap)
+        self.qlabel.setPixmap(qpixmap.scaled(700, 700, qtc.Qt.AspectRatioMode.KeepAspectRatio,
+                                             qtc.Qt.TransformationMode.SmoothTransformation))
 
 
 preop_drr_data = data_storage.PreOpDrrData()
