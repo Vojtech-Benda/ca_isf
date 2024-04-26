@@ -820,11 +820,17 @@
   <tabstop>led_sid</tabstop>
   <tabstop>led_drr_thresh</tabstop>
   <tabstop>pbu_drr_start</tabstop>
+  <tabstop>cbo_intraop_input</tabstop>
+  <tabstop>cbo_preop_input</tabstop>
   <tabstop>led_multires_levels</tabstop>
   <tabstop>led_shrink_factors</tabstop>
   <tabstop>led_sigma_factors</tabstop>
   <tabstop>cbo_optim_method</tabstop>
   <tabstop>pbu_reg_start</tabstop>
+  <tabstop>led_lower_edge_thresh</tabstop>
+  <tabstop>led_upper_edge_thresh</tabstop>
+  <tabstop>tbr_output_messages</tabstop>
+  <tabstop>twi_data_list</tabstop>
  </tabstops>
  <resources/>
  <connections/>
