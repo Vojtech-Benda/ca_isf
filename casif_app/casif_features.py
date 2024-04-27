@@ -4,7 +4,6 @@ import numpy as np
 from gvxrPython3 import gvxr
 import time
 from typing import Union
-from skimage.morphology import closing, dilation
 
 
 def generate_intraop_drr(ct_volume: sitk.Image,
@@ -271,25 +270,30 @@ def get_alpha_blend(image1: sitk.Image, image2: sitk.Image, alpha=0.5):
 def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
                       guide_low_thresh: float, guide_up_thresh: float, colors: dict):
 
+    # rescale and cast image to uint8
     fixed_image_rescaled = rescale_intensity(fixed_image)
 
     guide_edges = sitk.CannyEdgeDetection(moving_image,
                                           lowerThreshold=guide_low_thresh,
                                           upperThreshold=guide_up_thresh)
 
-    moving_mask = sitk.GetArrayFromImage(moving_image)
-    moving_mask[moving_mask > 0.0] = 1.0
-    bone_edges = sitk.CannyEdgeDetection(sitk.GetImageFromArray(moving_mask))
+    # threshold to get binary image of bones
+    moving_image[moving_image > 0.0] = 1.0
+    bone_edges = sitk.CannyEdgeDetection(moving_image)
 
-    guide_closed = closing(sitk.GetArrayFromImage(guide_edges), footprint=np.ones(shape=(5, 5))).astype(np.uint8)
-    bones_dilated = 2 * dilation(sitk.GetArrayFromImage(bone_edges), footprint=np.ones(shape=(4, 4))).astype(np.uint8)
+    # fill inside of guide edges
+    guide_closed = sitk.Cast(sitk.GrayscaleMorphologicalClosing(guide_edges,
+                                                      kernelRadius=[2, 2] * 3,
+                                                      kernelType=sitk.sitkBox), sitk.sitkUInt8)
+    # dilate bone edges
+    bones_dilated = 2 * sitk.Cast(sitk.GrayscaleDilate(bone_edges), sitk.sitkUInt8)
 
-    label_map = sitk.GetImageFromArray(guide_closed + bones_dilated)
+    label_map = guide_closed + bones_dilated
 
-    labeled_image = sitk.LabelOverlay(fixed_image_rescaled, label_map,
+    labeled_image = sitk.LabelOverlay(fixed_image_rescaled,  # type is uint8
+                                      label_map,  # type is uint8
                                       colormap=colors["red"] + colors["yellow"],
-                                      opacity=1.0, backgroundValue=0)
-
+                                      opacity=0.75, backgroundValue=0)
     return labeled_image
 
 
