@@ -1,7 +1,5 @@
 import SimpleITK as sitk
-import pathlib
 from typing import Union
-from casif_app.casif_features import cast_image
 
 
 def read_dicom_files(dir_path: str) -> Union[sitk.Image, None]:
