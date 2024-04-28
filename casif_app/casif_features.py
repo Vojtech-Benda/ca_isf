@@ -8,7 +8,6 @@ from typing import Union
 
 def generate_intraop_drr(ct_volume: sitk.Image,
                          drr_settings) -> sitk.Image | None:
-
     src_img_dist, output_drr_size, threshold = drr_settings.values()
 
     itk_volume = convert_image_sitk_to_itk(ct_volume)  # convert sitk image to itk image
@@ -107,7 +106,7 @@ def generate_preop_drr(pelvis_mesh_file_path,
         return None
 
     # flat field correction
-    total_energy = gvxr.getTotalEnergyWithDetectorResponse() # in MeV
+    total_energy = gvxr.getTotalEnergyWithDetectorResponse()  # in MeV
     white = np.ones(xray_image.shape) * total_energy
     black = np.zeros(xray_image.shape)
     xray_image_flatfield = (xray_image - black) / (white - black)
@@ -269,7 +268,6 @@ def get_alpha_blend(image1: sitk.Image, image2: sitk.Image, alpha=0.5):
 
 def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
                       guide_low_thresh: float, guide_up_thresh: float, colors: dict):
-
     # rescale and cast image to uint8
     fixed_image_rescaled = rescale_intensity(fixed_image)
 
@@ -283,8 +281,8 @@ def get_labeled_edges(fixed_image: sitk.Image, moving_image: sitk.Image,
 
     # fill inside of guide edges
     guide_closed = sitk.Cast(sitk.GrayscaleMorphologicalClosing(guide_edges,
-                                                      kernelRadius=[2, 2] * 3,
-                                                      kernelType=sitk.sitkBox), sitk.sitkUInt8)
+                                                                kernelRadius=[2, 2] * 3,
+                                                                kernelType=sitk.sitkBox), sitk.sitkUInt8)
     # dilate bone edges
     bones_dilated = 2 * sitk.Cast(sitk.GrayscaleDilate(bone_edges), sitk.sitkUInt8)
 
@@ -330,7 +328,6 @@ registration_method.SetOptimizerScalesFromPhysicalShift()
 registration_method.SetMetricSamplingStrategy(sitk.ImageRegistrationMethod.NONE)
 registration_method.SetMetricSamplingPercentage(percentage=0.01, seed=42)
 registration_method.SetInterpolator(sitk.sitkLinear)
-
 
 if __name__ == "__main__":
     print(f"Executed {__file__}")
